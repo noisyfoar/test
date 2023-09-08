@@ -47,7 +47,10 @@ func showUserPage(writer http.ResponseWriter, request *http.Request) {
 			fmt.Println(err)
 			return
 		}
-		if id >= len(users) || id < 1 {
+
+		_, check := users[id]
+
+		if !check || id < 1 {
 			writer.Write([]byte("not existing\n"))
 			return
 		}
