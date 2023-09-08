@@ -32,13 +32,14 @@ func showUserPage(writer http.ResponseWriter, request *http.Request) {
 		if check == true {
 			users[id] = User{ID: id, Token: users[id].Token, Name: temp_user.Name, Age: temp_user.Age}
 			temp_user = users[id]
-			writer.Write([]byte("Successfully changed"))
+			writer.Write([]byte("Successfully changed\n"))
 		} else {
 			addUser(temp_user, id)
-			writer.Write([]byte("Successfully added"))
+			writer.Write([]byte("Successfully added\n"))
 		}
 
-		writer.Write([]byte(temp_user.Name))
+		data := []byte(strconv.Itoa(id) + " " + temp_user.Name + " " + temp_user.Token + " " + strconv.Itoa(users[id].Age) + "\n")
+		writer.Write(data)
 	}
 	if request.Method == http.MethodGet {
 
