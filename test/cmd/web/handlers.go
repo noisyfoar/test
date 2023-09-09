@@ -75,7 +75,7 @@ func addUser(user User, ID int) {
 func changeUser(user User) {
 	var id = user.ID
 	{
-		var token = user.Token
+		var token = users[id].Token
 		users[id] = User{ID: id, Token: token, Name: user.Name, Age: user.Age}
 	}
 }
