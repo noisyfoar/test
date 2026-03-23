@@ -18,6 +18,7 @@
   - индексатор logical records (тип, смещение, длина, class explicit/implicit).
   - парсер fixed/text records (File/Reel/Tape Header/Trailer, text records),
   - начальный DFSR-парсер (entry blocks и spec blocks subtype 0/1).
+  - начальный FData-парсер кадров (Normal/Alternate Data).
 - Добавлены LIS unit-тесты в `tests/Dlisio.Tests/Lis`.
 
 ## Быстрая проверка

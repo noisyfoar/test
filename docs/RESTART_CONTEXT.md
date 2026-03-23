@@ -18,13 +18,14 @@
    - `LisReader` для чтения logical record с stitching нескольких PR,
    - `LisIndexer` / `LisRecordIndex` / `LisRecordInfo` для индексации записей,
    - `LisFixedRecordParser` для fixed/text records,
-   - `LisDfsrParser` для базового разбора DFSR.
+   - `LisDfsrParser` для базового разбора DFSR,
+   - `LisFdataParser` для базового разбора FData.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 
 ## Текущее состояние качества
 
-- Unit-тесты: **67 passed, 0 failed**.
+- Unit-тесты: **83 passed, 0 failed**.
 - Проверка:
 
 ```bash
@@ -37,7 +38,10 @@ dotnet test DlisioNet.sln
 
 1. Поддержка последовательности нескольких logical files в одном физическом файле.
 2. Расширение DFSR-парсера и валидации entry/spec блоков.
-3. Затем — FData/curves (Normal/Alternate Data).
+3. Расширение FData/curves:
+   - поддержка всех reprc,
+   - fast-channel сценарии,
+   - более полный API доступа к кривым.
 
 ## Быстрый старт после рестарта
 
@@ -58,5 +62,6 @@ dotnet test DlisioNet.sln
    - `src/Dlisio.Core/Lis/LisIndexer.cs`
    - `src/Dlisio.Core/Lis/LisFixedRecordParser.cs`
    - `src/Dlisio.Core/Lis/LisDfsrParser.cs`
+   - `src/Dlisio.Core/Lis/LisFdataParser.cs`
    - `src/Dlisio.Core/Lis/LisHeaderParser.cs`
    - `tests/Dlisio.Tests/Lis/*`
