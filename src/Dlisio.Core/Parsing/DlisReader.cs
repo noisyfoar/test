@@ -1,10 +1,43 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Dlisio.Core.Parsing
 {
     public sealed class DlisReader
     {
+        public LogicalRecord ReadNextLogicalRecord(Stream stream)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            var segments = new List<LogicalRecordSegment>();
+
+            LogicalRecordSegment first = ReadNextSegment(stream);
+            if (!first.Header.IsFirstSegment)
+            {
+                throw new DlisParseException(
+                    "Invalid logical record sequence: first segment in stream is not marked as first.");
+            }
+
+            segments.Add(first);
+
+            while (!segments[segments.Count - 1].Header.IsLastSegment)
+            {
+                LogicalRecordSegment next = ReadNextSegment(stream);
+                segments.Add(next);
+            }
+
+            return LogicalRecordAssembler.Assemble(segments);
+        }
+
         public LogicalRecordSegment ReadNextSegment(Stream stream)
         {
             if (stream == null)
