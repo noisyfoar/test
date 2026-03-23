@@ -25,7 +25,8 @@ dotnet test DlisioNet.sln
 ```
 
 This validates:
-- `Dlisio.Core` builds for `net48` and `net8.0`
+- `Dlisio.Core` builds for `net48` (library target)
+- LIS test harness builds/runs under `net8.0`
 - unit tests in `tests/Dlisio.Tests` pass
 
 ## Implementation workflow rule

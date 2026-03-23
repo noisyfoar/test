@@ -6,7 +6,8 @@
 
 - Приоритет проекта: **LIS79**
 - DLIS направление отключено (не целевой scope).
-- Платформа: `.NET Framework 4.8` + `net8.0` (для тестов в Cloud).
+- Платформа библиотеки: `.NET Framework 4.8` (только).
+- `net8.0` используется только для запуска unit-тестов в Cloud/Linux.
 
 ## Что уже сделано
 
@@ -15,13 +16,14 @@
    - `LisPhysicalRecordHeader` (PRH),
    - `LisLogicalRecordHeader` (LRH),
    - `LisRecordType` + валидация типов,
-   - `LisReader` для чтения logical record с stitching нескольких PR.
+   - `LisReader` для чтения logical record с stitching нескольких PR,
+   - `LisIndexer` / `LisRecordIndex` / `LisRecordInfo` для индексации записей.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 
 ## Текущее состояние качества
 
-- Unit-тесты: **40 passed, 0 failed**.
+- Unit-тесты: **50 passed, 0 failed**.
 - Проверка:
 
 ```bash
@@ -32,11 +34,11 @@ dotnet test DlisioNet.sln
 
 Следующий шаг (LIS-only):
 
-1. Индексация logical records (позиции, типы, группировка по logical file).
-2. Декодирование fixed records:
+1. Декодирование fixed records:
    - File Header/Trailer,
    - Reel Header/Trailer,
    - Tape Header/Trailer.
+2. Поддержка последовательности нескольких logical files в одном физическом файле.
 3. Затем — DFSR/FData (кривые).
 
 ## Быстрый старт после рестарта
@@ -55,5 +57,6 @@ dotnet test DlisioNet.sln
 
 3. Основные файлы для продолжения:
    - `src/Dlisio.Core/Lis/LisReader.cs`
+   - `src/Dlisio.Core/Lis/LisIndexer.cs`
    - `src/Dlisio.Core/Lis/LisHeaderParser.cs`
    - `tests/Dlisio.Tests/Lis/*`
