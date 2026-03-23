@@ -11,6 +11,7 @@
 ## Текущее состояние
 
 - DLIS-специфичный транспортный слой удалён из `src/Dlisio.Core/Parsing`.
+- Core собирается как библиотека `Lis.Core.dll` (project: `src/Dlisio.Core`).
 - Добавлен LIS-first слой в `src/Dlisio.Core/Lis`:
   - PRH/LRH парсеры,
   - типы LIS79,
@@ -23,7 +24,8 @@
     - `LisLogicalFileParser`,
     - `LisFileParser`,
     - `LisReadOptions` (выбор кривых, режим curves-only),
-    - `LisReadMetrics` (счётчики read/decode).
+    - `LisReadMetrics` (счётчики read/decode),
+    - `LisImporter` / `LisExporter` (импорт/экспорт LIS logical records).
 - Добавлены LIS unit-тесты в `tests/Dlisio.Tests/Lis`.
 
 ## Как загружать LIS и что получать
@@ -77,6 +79,26 @@ IReadOnlyList<LisLogicalFileData> files =
   - `SamplesDecoded`,
   - `SamplesSkipped`,
   - `ParseElapsedMilliseconds`.
+
+### 4) Импорт LIS (raw logical records)
+
+```csharp
+using var stream = File.OpenRead("input.lis");
+var importer = new LisImporter();
+LisDocument document = importer.Import(stream);
+```
+
+`LisDocument` содержит последовательность `LisLogicalRecord` (type/attributes/data).
+
+### 5) Экспорт LIS (raw logical records -> файл)
+
+```csharp
+var exporter = new LisExporter();
+var options = new LisExportOptions(maxPhysicalRecordLength: 4096);
+exporter.Export("output.lis", document, options);
+```
+
+Поддерживается запись как в `Stream`, так и сразу в файл (`path`).
 
 ## Быстрая проверка
 
