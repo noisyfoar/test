@@ -53,6 +53,50 @@ namespace Dlisio.Tests.Lis
         }
 
         [Fact]
+        public void TryReadNextLogicalRecord_AtEof_ReturnsFalse()
+        {
+            using var stream = new MemoryStream(Array.Empty<byte>());
+            var reader = new LisReader();
+
+            bool ok = reader.TryReadNextLogicalRecord(stream, out LisLogicalRecord? record);
+
+            Assert.False(ok);
+            Assert.Null(record);
+        }
+
+        [Fact]
+        public void TryReadNextLogicalRecord_WithTrailingPadding_ReturnsFalseAtEnd()
+        {
+            byte[] recordBytes = BuildPhysicalRecord(
+                0x0000,
+                BuildLrhPayload((byte)LisRecordType.FileHeader, 0x00, 0x55));
+            byte[] trailingPad = new byte[] { 0x20, 0x20, 0x20, 0x20, 0x20 };
+
+            using var stream = new MemoryStream(Concat(recordBytes, trailingPad));
+            var reader = new LisReader();
+
+            bool first = reader.TryReadNextLogicalRecord(stream, out LisLogicalRecord? firstRecord);
+            bool second = reader.TryReadNextLogicalRecord(stream, out LisLogicalRecord? secondRecord);
+
+            Assert.True(first);
+            Assert.NotNull(firstRecord);
+            Assert.False(second);
+            Assert.Null(secondRecord);
+        }
+
+        [Fact]
+        public void TryReadNextLogicalRecord_UnseekableReadableStream_ThrowsArgumentException()
+        {
+            byte[] recordBytes = BuildPhysicalRecord(
+                0x0000,
+                BuildLrhPayload((byte)LisRecordType.FileHeader, 0x00));
+            using var stream = new ReadOnlyNonSeekableStream(recordBytes);
+            var reader = new LisReader();
+
+            Assert.Throws<ArgumentException>(() => reader.TryReadNextLogicalRecord(stream, out _));
+        }
+
+        [Fact]
         public void ReadNextLogicalRecord_SinglePhysicalRecord_ParsesPayload()
         {
             byte[] payload = BuildLrhPayload((byte)LisRecordType.FileHeader, 0x01, 0x10, 0x11, 0x12);
@@ -299,6 +343,61 @@ namespace Dlisio.Tests.Lis
             public override int Read(byte[] buffer, int offset, int count)
             {
                 throw new NotSupportedException();
+            }
+
+            public override long Seek(long offset, SeekOrigin origin)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void SetLength(long value)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                throw new NotSupportedException();
+            }
+        }
+
+        private sealed class ReadOnlyNonSeekableStream : Stream
+        {
+            private readonly byte[] _data;
+            private int _position;
+
+            public ReadOnlyNonSeekableStream(byte[] data)
+            {
+                _data = data;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => _data.Length;
+
+            public override long Position
+            {
+                get => _position;
+                set => throw new NotSupportedException();
+            }
+
+            public override void Flush()
+            {
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int remaining = _data.Length - _position;
+                if (remaining <= 0)
+                {
+                    return 0;
+                }
+
+                int toRead = Math.Min(remaining, count);
+                Buffer.BlockCopy(_data, _position, buffer, offset, toRead);
+                _position += toRead;
+                return toRead;
             }
 
             public override long Seek(long offset, SeekOrigin origin)

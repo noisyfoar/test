@@ -33,6 +33,10 @@ namespace Dlisio.Core.Lis
                 {
                     break;
                 }
+                if (record == null)
+                {
+                    throw new LisParseException("LIS reader returned no record after successful read.");
+                }
 
                 var info = new LisRecordInfo(
                     offset,
