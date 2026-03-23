@@ -4,8 +4,14 @@ using System.IO;
 
 namespace Lis.Core.Lis
 {
+    /// <summary>
+    /// Reads a LIS stream into a raw in-memory <see cref="LisDocument"/>.
+    /// </summary>
     public sealed class LisImporter
     {
+        /// <summary>
+        /// Opens and imports a LIS file by path.
+        /// </summary>
         public LisDocument Import(string path)
         {
             if (path == null)
@@ -22,6 +28,9 @@ namespace Lis.Core.Lis
             return Import(stream);
         }
 
+        /// <summary>
+        /// Imports all logical records from a readable, seekable stream.
+        /// </summary>
         public LisDocument Import(Stream stream)
         {
             if (stream == null)
@@ -39,6 +48,7 @@ namespace Lis.Core.Lis
                 throw new ArgumentException("Stream must be seekable.", nameof(stream));
             }
 
+            // Preserve caller stream state; importer is non-destructive.
             long originalPosition = stream.Position;
             stream.Position = 0;
             try

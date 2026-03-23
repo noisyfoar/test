@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Text;
 using System.Windows.Forms;
@@ -7,8 +8,16 @@ using Lis.Core.Lis;
 
 namespace Lis.Gui
 {
+    /// <summary>
+    /// Minimal desktop viewer for inspecting LIS contents as text/tables.
+    /// Charts are intentionally excluded to keep the UI lightweight.
+    /// </summary>
     public sealed class MainForm : Form
     {
+        private const string DefaultStatus = "Готово. Выберите LIS-файл.";
+        private const string ReadingStatus = "Чтение LIS...";
+        private const string ReadErrorStatus = "Ошибка при чтении LIS.";
+
         private readonly TextBox _filePathTextBox;
         private readonly Button _browseButton;
         private readonly Button _loadButton;
@@ -20,141 +29,18 @@ namespace Lis.Gui
 
         public MainForm()
         {
-            Text = "LISIO.NET Viewer";
-            StartPosition = FormStartPosition.CenterScreen;
-            Width = 1100;
-            Height = 760;
-            MinimumSize = new System.Drawing.Size(900, 600);
+            ConfigureWindow();
 
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 4,
-                Padding = new Padding(10)
-            };
+            _filePathTextBox = CreatePathTextBox();
+            _browseButton = CreateBrowseButton();
+            _loadButton = CreateLoadButton();
+            _curvesOnlyCheckBox = CreateCurvesOnlyCheckBox();
+            _selectedCurvesTextBox = CreateSelectedCurvesTextBox();
+            _statusLabel = CreateStatusLabel();
+            _reportTextBox = CreateReportTextBox();
+            _rawRecordsGrid = CreateRawRecordsGrid();
 
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-
-            var filePanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ColumnCount = 3
-            };
-            filePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            filePanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            filePanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-
-            _filePathTextBox = new TextBox
-            {
-                Dock = DockStyle.Fill
-            };
-
-            _browseButton = new Button
-            {
-                AutoSize = true,
-                Text = "Выбрать LIS..."
-            };
-            _browseButton.Click += OnBrowseClick;
-
-            _loadButton = new Button
-            {
-                AutoSize = true,
-                Text = "Открыть"
-            };
-            _loadButton.Click += OnLoadClick;
-
-            filePanel.Controls.Add(_filePathTextBox, 0, 0);
-            filePanel.Controls.Add(_browseButton, 1, 0);
-            filePanel.Controls.Add(_loadButton, 2, 0);
-
-            var optionsPanel = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                WrapContents = true
-            };
-
-            _curvesOnlyCheckBox = new CheckBox
-            {
-                AutoSize = true,
-                Text = "Только кривые (без frames)"
-            };
-
-            var selectedCurvesLabel = new Label
-            {
-                AutoSize = true,
-                Padding = new Padding(10, 6, 0, 0),
-                Text = "Выбранные curves (через запятую):"
-            };
-
-            _selectedCurvesTextBox = new TextBox
-            {
-                Width = 350
-            };
-
-            optionsPanel.Controls.Add(_curvesOnlyCheckBox);
-            optionsPanel.Controls.Add(selectedCurvesLabel);
-            optionsPanel.Controls.Add(_selectedCurvesTextBox);
-
-            _statusLabel = new Label
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                Text = "Готово. Выберите LIS-файл."
-            };
-
-            _reportTextBox = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Multiline = true,
-                ReadOnly = true,
-                ScrollBars = ScrollBars.Both,
-                WordWrap = false
-            };
-
-            _rawRecordsGrid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                AutoGenerateColumns = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
-            };
-            _rawRecordsGrid.Columns.Add("Seq", "#");
-            _rawRecordsGrid.Columns.Add("LogicalFile", "Logical File");
-            _rawRecordsGrid.Columns.Add("Offset", "Offset");
-            _rawRecordsGrid.Columns.Add("Type", "Type");
-            _rawRecordsGrid.Columns.Add("Attributes", "Attributes");
-            _rawRecordsGrid.Columns.Add("PhysicalRecords", "Physical Records");
-            _rawRecordsGrid.Columns.Add("DataLength", "Data Length");
-            _rawRecordsGrid.Columns.Add("Class", "Class");
-
-            var tabs = new TabControl
-            {
-                Dock = DockStyle.Fill
-            };
-
-            var summaryTab = new TabPage("Сводка");
-            summaryTab.Controls.Add(_reportTextBox);
-
-            var rawTab = new TabPage("Raw records");
-            rawTab.Controls.Add(_rawRecordsGrid);
-
-            tabs.TabPages.Add(summaryTab);
-            tabs.TabPages.Add(rawTab);
-
-            root.Controls.Add(filePanel, 0, 0);
-            root.Controls.Add(optionsPanel, 0, 1);
-            root.Controls.Add(_statusLabel, 0, 2);
-            root.Controls.Add(tabs, 0, 3);
-
-            Controls.Add(root);
+            Controls.Add(BuildRootLayout());
         }
 
         private void OnBrowseClick(object? sender, EventArgs e)
@@ -175,61 +61,271 @@ namespace Lis.Gui
 
         private void OnLoadClick(object? sender, EventArgs e)
         {
-            string filePath = _filePathTextBox.Text.Trim();
-            if (filePath.Length == 0)
+            if (!TryGetValidatedInputPath(out string filePath))
             {
-                _statusLabel.Text = "Ошибка: путь к файлу не задан.";
-                return;
-            }
-
-            if (!File.Exists(filePath))
-            {
-                _statusLabel.Text = "Ошибка: файл не найден.";
                 return;
             }
 
             try
             {
-                Cursor = Cursors.WaitCursor;
-                _loadButton.Enabled = false;
-                _reportTextBox.Text = string.Empty;
-                _rawRecordsGrid.Rows.Clear();
-                _statusLabel.Text = "Чтение LIS...";
+                SetBusyState(true, ReadingStatus);
+                ResetOutputViews();
 
                 using var stream = File.OpenRead(filePath);
-                var parser = new LisFileParser();
                 var metrics = new LisReadMetrics();
+                IReadOnlyCollection<string>? selectedCurves = ParseSelectedCurves(_selectedCurvesTextBox.Text);
 
-                IReadOnlyCollection<string>? selected = ParseSelectedCurves(_selectedCurvesTextBox.Text);
-                IReadOnlyList<LisLogicalFileData> parsed;
-                if (_curvesOnlyCheckBox.Checked)
-                {
-                    parsed = parser.ParseCurves(stream, selected, metrics);
-                }
-                else
-                {
-                    var options = new LisReadOptions(
-                        selectedCurveMnemonics: selected,
-                        includeFrames: true,
-                        includeCurves: false);
-                    parsed = parser.Parse(stream, options, metrics);
-                }
+                IReadOnlyList<LisLogicalFileData> parsed = ParseFiles(stream, selectedCurves, metrics);
 
                 _reportTextBox.Text = BuildReport(parsed, metrics, _curvesOnlyCheckBox.Checked);
                 PopulateRawRecords(stream);
-                _statusLabel.Text = "Готово.";
+                _statusLabel.Text = DefaultStatus;
             }
             catch (Exception ex)
             {
-                _statusLabel.Text = "Ошибка при чтении LIS.";
+                _statusLabel.Text = ReadErrorStatus;
                 _reportTextBox.Text = ex.ToString();
                 _rawRecordsGrid.Rows.Clear();
             }
             finally
             {
-                _loadButton.Enabled = true;
-                Cursor = Cursors.Default;
+                SetBusyState(false, _statusLabel.Text);
             }
+        }
+
+        private static TextBox CreatePathTextBox()
+        {
+            return new TextBox
+            {
+                Dock = DockStyle.Fill
+            };
+        }
+
+        private Button CreateBrowseButton()
+        {
+            var button = new Button
+            {
+                AutoSize = true,
+                Text = "Выбрать LIS..."
+            };
+            button.Click += OnBrowseClick;
+            return button;
+        }
+
+        private Button CreateLoadButton()
+        {
+            var button = new Button
+            {
+                AutoSize = true,
+                Text = "Открыть"
+            };
+            button.Click += OnLoadClick;
+            return button;
+        }
+
+        private static CheckBox CreateCurvesOnlyCheckBox()
+        {
+            return new CheckBox
+            {
+                AutoSize = true,
+                Text = "Только кривые (без frames)"
+            };
+        }
+
+        private static TextBox CreateSelectedCurvesTextBox()
+        {
+            return new TextBox
+            {
+                Width = 350
+            };
+        }
+
+        private static Label CreateStatusLabel()
+        {
+            return new Label
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                Text = DefaultStatus
+            };
+        }
+
+        private static TextBox CreateReportTextBox()
+        {
+            return new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Both,
+                WordWrap = false
+            };
+        }
+
+        private static DataGridView CreateRawRecordsGrid()
+        {
+            var grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AutoGenerateColumns = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            };
+
+            AddGridColumn(grid, "Seq", "#");
+            AddGridColumn(grid, "LogicalFile", "Logical File");
+            AddGridColumn(grid, "Offset", "Offset");
+            AddGridColumn(grid, "Type", "Type");
+            AddGridColumn(grid, "Attributes", "Attributes");
+            AddGridColumn(grid, "PhysicalRecords", "Physical Records");
+            AddGridColumn(grid, "DataLength", "Data Length");
+            AddGridColumn(grid, "Class", "Class");
+            return grid;
+        }
+
+        private static void AddGridColumn(DataGridView grid, string name, string caption)
+        {
+            grid.Columns.Add(name, caption);
+        }
+
+        private void ConfigureWindow()
+        {
+            Text = "Lis.NET Viewer";
+            StartPosition = FormStartPosition.CenterScreen;
+            Width = 1100;
+            Height = 760;
+            MinimumSize = new Size(900, 600);
+        }
+
+        private Control BuildRootLayout()
+        {
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4,
+                Padding = new Padding(10)
+            };
+
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            root.Controls.Add(BuildFilePanel(), 0, 0);
+            root.Controls.Add(BuildOptionsPanel(), 0, 1);
+            root.Controls.Add(_statusLabel, 0, 2);
+            root.Controls.Add(BuildTabs(), 0, 3);
+            return root;
+        }
+
+        private Control BuildFilePanel()
+        {
+            var panel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 3
+            };
+
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+            panel.Controls.Add(_filePathTextBox, 0, 0);
+            panel.Controls.Add(_browseButton, 1, 0);
+            panel.Controls.Add(_loadButton, 2, 0);
+            return panel;
+        }
+
+        private Control BuildOptionsPanel()
+        {
+            var panel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                WrapContents = true
+            };
+
+            panel.Controls.Add(_curvesOnlyCheckBox);
+            panel.Controls.Add(new Label
+            {
+                AutoSize = true,
+                Padding = new Padding(10, 6, 0, 0),
+                Text = "Выбранные curves (через запятую):"
+            });
+            panel.Controls.Add(_selectedCurvesTextBox);
+            return panel;
+        }
+
+        private Control BuildTabs()
+        {
+            var tabs = new TabControl
+            {
+                Dock = DockStyle.Fill
+            };
+
+            var summaryTab = new TabPage("Сводка");
+            summaryTab.Controls.Add(_reportTextBox);
+
+            var rawTab = new TabPage("Raw records");
+            rawTab.Controls.Add(_rawRecordsGrid);
+
+            tabs.TabPages.Add(summaryTab);
+            tabs.TabPages.Add(rawTab);
+            return tabs;
+        }
+
+        private bool TryGetValidatedInputPath(out string path)
+        {
+            path = _filePathTextBox.Text.Trim();
+            if (path.Length == 0)
+            {
+                _statusLabel.Text = "Ошибка: путь к файлу не задан.";
+                return false;
+            }
+
+            if (!File.Exists(path))
+            {
+                _statusLabel.Text = "Ошибка: файл не найден.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private void SetBusyState(bool isBusy, string statusText)
+        {
+            Cursor = isBusy ? Cursors.WaitCursor : Cursors.Default;
+            _loadButton.Enabled = !isBusy;
+            _statusLabel.Text = statusText;
+        }
+
+        private void ResetOutputViews()
+        {
+            _reportTextBox.Text = string.Empty;
+            _rawRecordsGrid.Rows.Clear();
+        }
+
+        private IReadOnlyList<LisLogicalFileData> ParseFiles(
+            Stream stream,
+            IReadOnlyCollection<string>? selectedCurves,
+            LisReadMetrics metrics)
+        {
+            var parser = new LisFileParser();
+            if (_curvesOnlyCheckBox.Checked)
+            {
+                return parser.ParseCurves(stream, selectedCurves, metrics);
+            }
+
+            var options = new LisReadOptions(
+                selectedCurveMnemonics: selectedCurves,
+                includeFrames: true,
+                includeCurves: false);
+
+            return parser.Parse(stream, options, metrics);
         }
 
         private static IReadOnlyCollection<string>? ParseSelectedCurves(string input)
@@ -289,6 +385,9 @@ namespace Lis.Gui
             }
         }
 
+        /// <summary>
+        /// Builds a human-readable text report for quick diagnostics and support.
+        /// </summary>
         private static string BuildReport(IReadOnlyList<LisLogicalFileData> files, LisReadMetrics metrics, bool curvesOnly)
         {
             var sb = new StringBuilder();

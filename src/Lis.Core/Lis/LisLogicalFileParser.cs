@@ -4,13 +4,22 @@ using System.IO;
 
 namespace Lis.Core.Lis
 {
+    /// <summary>
+    /// Parses one logical LIS file scope into typed content objects.
+    /// </summary>
     public sealed class LisLogicalFileParser
     {
+        /// <summary>
+        /// Parses with default options.
+        /// </summary>
         public LisLogicalFileData Parse(Stream stream, LisLogicalFile logicalFile)
         {
             return Parse(stream, logicalFile, options: null, metrics: null);
         }
 
+        /// <summary>
+        /// Parses one logical file with selective materialization options.
+        /// </summary>
         public LisLogicalFileData Parse(
             Stream stream,
             LisLogicalFile logicalFile,
@@ -78,29 +87,15 @@ namespace Lis.Core.Lis
 
                     case LisRecordType.NormalData:
                     case LisRecordType.AlternateData:
-                        if (activeDfsr == null)
-                        {
-                            throw new LisParseException(
-                                "Encountered FData record before Data Format Specification Record.");
-                        }
-
-                        metrics?.AddFdataBytesRead(record.Data.Length);
-
-                        if (options.IncludeFrames)
-                        {
-                            IReadOnlyList<LisFrameData> parsedFrames =
-                                fdataParser.ParseFrames(record, activeDfsr, selectedCurves, metrics);
-                            for (int frame = 0; frame < parsedFrames.Count; frame++)
-                            {
-                                frames.Add(parsedFrames[frame]);
-                            }
-                        }
-
-                        if (options.IncludeCurves)
-                        {
-                            fdataParser.AccumulateCurves(record, activeDfsr, curveAccumulator, selectedCurves, metrics);
-                        }
-
+                        HandleDataRecord(
+                            record,
+                            activeDfsr,
+                            options,
+                            selectedCurves,
+                            metrics,
+                            fdataParser,
+                            frames,
+                            curveAccumulator);
                         break;
 
                     case LisRecordType.OperatorCommandInputs:
@@ -112,13 +107,59 @@ namespace Lis.Core.Lis
                 }
             }
 
+            return new LisLogicalFileData(
+                fileHeader,
+                fileTrailer,
+                textRecords,
+                dfsrs,
+                frames,
+                BuildReadonlyCurves(curveAccumulator));
+        }
+
+        private static void HandleDataRecord(
+            LisLogicalRecord record,
+            LisDataFormatSpecificationRecord? activeDfsr,
+            LisReadOptions options,
+            HashSet<string>? selectedCurves,
+            LisReadMetrics? metrics,
+            LisFdataParser fdataParser,
+            List<LisFrameData> frames,
+            Dictionary<string, List<object>> curveAccumulator)
+        {
+            if (activeDfsr == null)
+            {
+                throw new LisParseException(
+                    "Encountered FData record before Data Format Specification Record.");
+            }
+
+            metrics?.AddFdataBytesRead(record.Data.Length);
+
+            if (options.IncludeFrames)
+            {
+                IReadOnlyList<LisFrameData> parsedFrames =
+                    fdataParser.ParseFrames(record, activeDfsr, selectedCurves, metrics);
+                for (int frame = 0; frame < parsedFrames.Count; frame++)
+                {
+                    frames.Add(parsedFrames[frame]);
+                }
+            }
+
+            if (options.IncludeCurves)
+            {
+                fdataParser.AccumulateCurves(record, activeDfsr, curveAccumulator, selectedCurves, metrics);
+            }
+        }
+
+        private static IReadOnlyDictionary<string, IReadOnlyList<object>> BuildReadonlyCurves(
+            Dictionary<string, List<object>> curveAccumulator)
+        {
             var curves = new Dictionary<string, IReadOnlyList<object>>(StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<string, List<object>> item in curveAccumulator)
             {
                 curves[item.Key] = item.Value;
             }
 
-            return new LisLogicalFileData(fileHeader, fileTrailer, textRecords, dfsrs, frames, curves);
+            return curves;
         }
     }
 }

@@ -5,13 +5,22 @@ using System.Diagnostics;
 
 namespace Lis.Core.Lis
 {
+    /// <summary>
+    /// High-level entry point that parses a whole LIS stream into logical files.
+    /// </summary>
     public sealed class LisFileParser
     {
+        /// <summary>
+        /// Parses full logical file data with default options.
+        /// </summary>
         public IReadOnlyList<LisLogicalFileData> Parse(Stream stream)
         {
             return Parse(stream, options: null, metrics: null);
         }
 
+        /// <summary>
+        /// Parses LIS stream with optional materialization settings and metrics.
+        /// </summary>
         public IReadOnlyList<LisLogicalFileData> Parse(
             Stream stream,
             LisReadOptions? options,
@@ -34,6 +43,7 @@ namespace Lis.Core.Lis
 
             options = options ?? new LisReadOptions();
             var stopwatch = Stopwatch.StartNew();
+            // Preserve caller state: parser always restores original position.
             long originalPosition = stream.Position;
             stream.Position = 0;
             try
@@ -62,6 +72,9 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Convenience mode for curve extraction without frame materialization.
+        /// </summary>
         public IReadOnlyList<LisLogicalFileData> ParseCurves(
             Stream stream,
             IReadOnlyCollection<string>? selectedCurveMnemonics = null,

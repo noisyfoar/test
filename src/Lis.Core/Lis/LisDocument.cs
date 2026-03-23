@@ -3,10 +3,19 @@ using System.Collections.Generic;
 
 namespace Lis.Core.Lis
 {
+    /// <summary>
+    /// In-memory container for a raw LIS stream represented as logical records.
+    /// </summary>
     public sealed class LisDocument
     {
         private readonly List<LisLogicalRecord> _records;
 
+        /// <summary>
+        /// Creates a new document from an ordered record list.
+        /// </summary>
+        /// <param name="records">
+        /// Logical records in physical file order. Null items are not allowed.
+        /// </param>
         public LisDocument(IReadOnlyList<LisLogicalRecord> records)
         {
             if (records == null)

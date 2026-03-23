@@ -3,8 +3,14 @@ using System.IO;
 
 namespace Lis.Core.Lis
 {
+    /// <summary>
+    /// Writes raw logical records back to LIS transport layout.
+    /// </summary>
     public sealed class LisExporter
     {
+        /// <summary>
+        /// Exports a document to a file path.
+        /// </summary>
         public void Export(string path, LisDocument document, LisExportOptions? options = null)
         {
             if (path == null)
@@ -21,6 +27,9 @@ namespace Lis.Core.Lis
             Export(stream, document, options);
         }
 
+        /// <summary>
+        /// Exports a document to a writable stream.
+        /// </summary>
         public void Export(Stream stream, LisDocument document, LisExportOptions? options = null)
         {
             if (stream == null)
@@ -63,6 +72,7 @@ namespace Lis.Core.Lis
 
             while (firstSegment || dataRemaining > 0)
             {
+                // Only first segment carries LRH bytes, therefore its payload capacity is smaller.
                 int segmentOverhead = firstSegment ? LisLogicalRecordHeader.HeaderLength : 0;
                 int maxDataInSegment = maxPayloadLength - segmentOverhead;
                 int segmentDataLength = Math.Min(dataRemaining, maxDataInSegment);
