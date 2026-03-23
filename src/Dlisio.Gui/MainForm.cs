@@ -16,6 +16,7 @@ namespace Dlisio.Gui
         private readonly TextBox _selectedCurvesTextBox;
         private readonly Label _statusLabel;
         private readonly TextBox _reportTextBox;
+        private readonly DataGridView _rawRecordsGrid;
 
         public MainForm()
         {
@@ -116,10 +117,42 @@ namespace Dlisio.Gui
                 WordWrap = false
             };
 
+            _rawRecordsGrid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AutoGenerateColumns = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            };
+            _rawRecordsGrid.Columns.Add("Seq", "#");
+            _rawRecordsGrid.Columns.Add("LogicalFile", "Logical File");
+            _rawRecordsGrid.Columns.Add("Offset", "Offset");
+            _rawRecordsGrid.Columns.Add("Type", "Type");
+            _rawRecordsGrid.Columns.Add("Attributes", "Attributes");
+            _rawRecordsGrid.Columns.Add("PhysicalRecords", "Physical Records");
+            _rawRecordsGrid.Columns.Add("DataLength", "Data Length");
+            _rawRecordsGrid.Columns.Add("Class", "Class");
+
+            var tabs = new TabControl
+            {
+                Dock = DockStyle.Fill
+            };
+
+            var summaryTab = new TabPage("Сводка");
+            summaryTab.Controls.Add(_reportTextBox);
+
+            var rawTab = new TabPage("Raw records");
+            rawTab.Controls.Add(_rawRecordsGrid);
+
+            tabs.TabPages.Add(summaryTab);
+            tabs.TabPages.Add(rawTab);
+
             root.Controls.Add(filePanel, 0, 0);
             root.Controls.Add(optionsPanel, 0, 1);
             root.Controls.Add(_statusLabel, 0, 2);
-            root.Controls.Add(_reportTextBox, 0, 3);
+            root.Controls.Add(tabs, 0, 3);
 
             Controls.Add(root);
         }
@@ -160,6 +193,7 @@ namespace Dlisio.Gui
                 Cursor = Cursors.WaitCursor;
                 _loadButton.Enabled = false;
                 _reportTextBox.Text = string.Empty;
+                _rawRecordsGrid.Rows.Clear();
                 _statusLabel.Text = "Чтение LIS...";
 
                 using var stream = File.OpenRead(filePath);
@@ -182,12 +216,14 @@ namespace Dlisio.Gui
                 }
 
                 _reportTextBox.Text = BuildReport(parsed, metrics, _curvesOnlyCheckBox.Checked);
+                PopulateRawRecords(stream);
                 _statusLabel.Text = "Готово.";
             }
             catch (Exception ex)
             {
                 _statusLabel.Text = "Ошибка при чтении LIS.";
                 _reportTextBox.Text = ex.ToString();
+                _rawRecordsGrid.Rows.Clear();
             }
             finally
             {
@@ -215,6 +251,42 @@ namespace Dlisio.Gui
             }
 
             return selected.Count == 0 ? null : selected;
+        }
+
+        private void PopulateRawRecords(Stream stream)
+        {
+            stream.Position = 0;
+            var index = new LisIndexer().Index(stream);
+            var logicalFiles = new LisLogicalFilePartitioner().Partition(index);
+
+            var fileByOffset = new Dictionary<long, int>();
+            for (int i = 0; i < logicalFiles.Count; i++)
+            {
+                IReadOnlyList<LisRecordInfo> records = logicalFiles[i].Records;
+                for (int r = 0; r < records.Count; r++)
+                {
+                    fileByOffset[records[r].Offset] = i + 1;
+                }
+            }
+
+            _rawRecordsGrid.Rows.Clear();
+            for (int i = 0; i < index.Records.Count; i++)
+            {
+                LisRecordInfo record = index.Records[i];
+                string logicalFile = fileByOffset.TryGetValue(record.Offset, out int fileNumber)
+                    ? fileNumber.ToString()
+                    : "-";
+
+                _rawRecordsGrid.Rows.Add(
+                    i + 1,
+                    logicalFile,
+                    record.Offset,
+                    record.Type.ToString(),
+                    "0x" + record.HeaderAttributes.ToString("X2"),
+                    record.PhysicalRecordCount,
+                    record.DataLength,
+                    record.IsImplicitRecord ? "implicit" : "explicit");
+            }
         }
 
         private static string BuildReport(IReadOnlyList<LisLogicalFileData> files, LisReadMetrics metrics, bool curvesOnly)

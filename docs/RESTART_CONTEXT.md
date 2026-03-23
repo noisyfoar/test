@@ -25,7 +25,8 @@
    - `LisReadMetrics` для счётчиков производительности.
 3. Добавлен отдельный GUI-проект:
    - `src/Dlisio.Gui` (WinForms, `.NET Framework 4.8`),
-   - открыть `.lis`, выбрать curves, получить текстовый отчёт без графиков.
+   - открыть `.lis`, выбрать curves, получить текстовый отчёт без графиков,
+   - отдельная вкладка `Raw records` с offset/type/length/class и привязкой к logical file.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 

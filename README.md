@@ -99,6 +99,14 @@ dotnet test DlisioNet.sln
   - header/trailer, количество records/frames/curves,
   - список curves и количество samples,
   - метрики чтения (`LisReadMetrics`).
+- отдельная вкладка **Raw records** (без графиков):
+  - `Logical File`,
+  - `Offset`,
+  - `Type`,
+  - `Attributes`,
+  - `Physical Records`,
+  - `Data Length`,
+  - `Class` (implicit/explicit).
 
 Запуск (на Windows):
 
