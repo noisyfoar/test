@@ -32,5 +32,30 @@ namespace Dlisio.Core.Parsing
         {
             get { return (Attributes & LogicalRecordSegmentAttributes.HasSuccessor) == 0; }
         }
+
+        public bool IsEncrypted
+        {
+            get { return (Attributes & LogicalRecordSegmentAttributes.Encrypted) != 0; }
+        }
+
+        public bool HasEncryptionPacket
+        {
+            get { return (Attributes & LogicalRecordSegmentAttributes.HasEncryptionPacket) != 0; }
+        }
+
+        public bool HasChecksum
+        {
+            get { return (Attributes & LogicalRecordSegmentAttributes.HasChecksum) != 0; }
+        }
+
+        public bool HasTrailingLength
+        {
+            get { return (Attributes & LogicalRecordSegmentAttributes.HasTrailingLength) != 0; }
+        }
+
+        public bool HasPadding
+        {
+            get { return (Attributes & LogicalRecordSegmentAttributes.HasPadding) != 0; }
+        }
     }
 }
