@@ -16,13 +16,15 @@
    - `LisLogicalRecordHeader` (LRH),
    - `LisRecordType` + валидация типов,
    - `LisReader` для чтения logical record с stitching нескольких PR,
-   - `LisIndexer` / `LisRecordIndex` / `LisRecordInfo` для индексации записей.
+   - `LisIndexer` / `LisRecordIndex` / `LisRecordInfo` для индексации записей,
+   - `LisFixedRecordParser` для fixed/text records,
+   - `LisDfsrParser` для базового разбора DFSR.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 
 ## Текущее состояние качества
 
-- Unit-тесты: **50 passed, 0 failed**.
+- Unit-тесты: **67 passed, 0 failed**.
 - Проверка:
 
 ```bash
@@ -33,12 +35,9 @@ dotnet test DlisioNet.sln
 
 Следующий шаг (LIS-only):
 
-1. Декодирование fixed records:
-   - File Header/Trailer,
-   - Reel Header/Trailer,
-   - Tape Header/Trailer.
-2. Поддержка последовательности нескольких logical files в одном физическом файле.
-3. Затем — DFSR/FData (кривые).
+1. Поддержка последовательности нескольких logical files в одном физическом файле.
+2. Расширение DFSR-парсера и валидации entry/spec блоков.
+3. Затем — FData/curves (Normal/Alternate Data).
 
 ## Быстрый старт после рестарта
 
@@ -57,5 +56,7 @@ dotnet test DlisioNet.sln
 3. Основные файлы для продолжения:
    - `src/Dlisio.Core/Lis/LisReader.cs`
    - `src/Dlisio.Core/Lis/LisIndexer.cs`
+   - `src/Dlisio.Core/Lis/LisFixedRecordParser.cs`
+   - `src/Dlisio.Core/Lis/LisDfsrParser.cs`
    - `src/Dlisio.Core/Lis/LisHeaderParser.cs`
    - `tests/Dlisio.Tests/Lis/*`

@@ -16,6 +16,8 @@
   - типы LIS79,
   - reader для логической записи с объединением нескольких physical records,
   - индексатор logical records (тип, смещение, длина, class explicit/implicit).
+  - парсер fixed/text records (File/Reel/Tape Header/Trailer, text records),
+  - начальный DFSR-парсер (entry blocks и spec blocks subtype 0/1).
 - Добавлены LIS unit-тесты в `tests/Dlisio.Tests/Lis`.
 
 ## Быстрая проверка
