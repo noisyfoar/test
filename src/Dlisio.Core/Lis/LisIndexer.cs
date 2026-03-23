@@ -28,22 +28,14 @@ namespace Dlisio.Core.Lis
 
             while (true)
             {
-                long offset = stream.Position;
-                if (!reader.TryReadNextLogicalRecord(stream, out LisLogicalRecord? record))
+                if (!reader.TrySkipNextLogicalRecord(stream, out LisRecordInfo? info))
                 {
                     break;
                 }
-                if (record == null)
+                if (info == null)
                 {
-                    throw new LisParseException("LIS reader returned no record after successful read.");
+                    throw new LisParseException("LIS reader returned no record info after successful skip.");
                 }
-
-                var info = new LisRecordInfo(
-                    offset,
-                    (LisRecordType)record.Header.Type,
-                    record.Header.Attributes,
-                    record.PhysicalRecordCount,
-                    record.Data.Length);
 
                 records.Add(info);
             }

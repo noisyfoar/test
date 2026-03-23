@@ -6,6 +6,43 @@ namespace Dlisio.Core.Lis
 {
     public sealed class LisReader
     {
+        public bool TrySkipNextLogicalRecord(Stream stream, out LisRecordInfo? info)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            if (!stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be seekable for TryRead operations.", nameof(stream));
+            }
+
+            long startPosition = stream.Position;
+            if (startPosition >= stream.Length)
+            {
+                info = null;
+                return false;
+            }
+
+            try
+            {
+                info = SkipNextLogicalRecord(stream);
+                return true;
+            }
+            catch (LisParseException) when (RemainingBytesArePadding(stream, startPosition))
+            {
+                stream.Seek(0, SeekOrigin.End);
+                info = null;
+                return false;
+            }
+        }
+
         public bool TryReadNextLogicalRecord(Stream stream, out LisLogicalRecord? record)
         {
             if (stream == null)
@@ -62,7 +99,7 @@ namespace Dlisio.Core.Lis
                     "Invalid LIS layout: first physical record in a logical record is marked as continuation.");
             }
 
-            var logicalRecordPayload = new List<byte>(Math.Max(0, firstPrh.Length - LisPhysicalRecordHeader.HeaderLength));
+            var payloadBuilder = new PayloadBuilder(Math.Max(0, firstPrh.Length - LisPhysicalRecordHeader.HeaderLength));
             LisLogicalRecordHeader? logicalRecordHeader = null;
             LisPhysicalRecordHeader currentHeader = firstPrh;
             int recordCount = 0;
@@ -95,11 +132,7 @@ namespace Dlisio.Core.Lis
 
                 if (payload.Length > payloadOffset)
                 {
-                    int count = payload.Length - payloadOffset;
-                    for (int i = 0; i < count; i++)
-                    {
-                        logicalRecordPayload.Add(payload[payloadOffset + i]);
-                    }
+                    payloadBuilder.Append(payload, payloadOffset, payload.Length - payloadOffset);
                 }
 
                 if (!currentHeader.HasSuccessor)
@@ -120,7 +153,7 @@ namespace Dlisio.Core.Lis
                 throw new LisParseException("Unable to read LIS logical record header.");
             }
 
-            return new LisLogicalRecord(logicalRecordHeader, logicalRecordPayload.ToArray(), recordCount);
+            return new LisLogicalRecord(logicalRecordHeader, payloadBuilder.ToArray(), recordCount);
         }
 
         public LisPhysicalRecordHeader ReadNextPhysicalRecordHeader(Stream stream)
@@ -147,6 +180,104 @@ namespace Dlisio.Core.Lis
             }
 
             return LisHeaderParser.ParsePhysicalRecordHeader(headerBytes, 0);
+        }
+
+        public LisRecordInfo SkipNextLogicalRecord(Stream stream)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            if (!stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be seekable.", nameof(stream));
+            }
+
+            long startOffset = stream.Position;
+            LisPhysicalRecordHeader currentHeader = ReadNextPhysicalRecordHeader(stream);
+
+            if (currentHeader.HasPredecessor)
+            {
+                throw new LisParseException(
+                    "Invalid LIS layout: first physical record in a logical record is marked as continuation.");
+            }
+
+            int physicalRecordCount = 0;
+            int dataLength = 0;
+            LisLogicalRecordHeader? lrh = null;
+
+            while (true)
+            {
+                physicalRecordCount++;
+
+                int payloadLength = currentHeader.Length - LisPhysicalRecordHeader.HeaderLength - currentHeader.TrailerLength;
+                if (payloadLength < 0)
+                {
+                    throw new LisParseException("Invalid LIS physical record length.");
+                }
+
+                if (!currentHeader.HasPredecessor)
+                {
+                    if (payloadLength < LisLogicalRecordHeader.HeaderLength)
+                    {
+                        throw new LisParseException(
+                            "Invalid LIS physical record: first segment does not contain a full LRH.");
+                    }
+
+                    byte[] lrhBytes = ReadExactly(stream, LisLogicalRecordHeader.HeaderLength, "LIS logical record header");
+                    lrh = LisHeaderParser.ParseLogicalRecordHeader(lrhBytes, 0);
+
+                    int remainder = payloadLength - LisLogicalRecordHeader.HeaderLength;
+                    if (remainder > 0)
+                    {
+                        SkipBytes(stream, remainder, "LIS logical record data");
+                        dataLength += remainder;
+                    }
+                }
+                else
+                {
+                    if (payloadLength > 0)
+                    {
+                        SkipBytes(stream, payloadLength, "LIS logical record continuation data");
+                        dataLength += payloadLength;
+                    }
+                }
+
+                if (currentHeader.TrailerLength > 0)
+                {
+                    SkipBytes(stream, currentHeader.TrailerLength, "LIS physical record trailer");
+                }
+
+                if (!currentHeader.HasSuccessor)
+                {
+                    break;
+                }
+
+                currentHeader = ReadNextPhysicalRecordHeader(stream);
+                if (!currentHeader.HasPredecessor)
+                {
+                    throw new LisParseException(
+                        "Invalid LIS layout: successor chain broken (missing predecessor bit in continuation record).");
+                }
+            }
+
+            if (lrh == null)
+            {
+                throw new LisParseException("Unable to read LIS logical record header.");
+            }
+
+            return new LisRecordInfo(
+                startOffset,
+                (LisRecordType)lrh.Type,
+                lrh.Attributes,
+                physicalRecordCount,
+                dataLength);
         }
 
         private static byte[] ReadExactly(Stream stream, int count, string componentName)
@@ -214,6 +345,63 @@ namespace Dlisio.Core.Lis
             finally
             {
                 stream.Position = originalPosition;
+            }
+        }
+
+        private sealed class PayloadBuilder
+        {
+            private byte[] _buffer;
+            private int _length;
+
+            public PayloadBuilder(int initialCapacity)
+            {
+                _buffer = new byte[Math.Max(initialCapacity, 16)];
+                _length = 0;
+            }
+
+            public void Append(byte[] source, int offset, int count)
+            {
+                if (count <= 0)
+                {
+                    return;
+                }
+
+                EnsureCapacity(_length + count);
+                Buffer.BlockCopy(source, offset, _buffer, _length, count);
+                _length += count;
+            }
+
+            public byte[] ToArray()
+            {
+                var result = new byte[_length];
+                if (_length > 0)
+                {
+                    Buffer.BlockCopy(_buffer, 0, result, 0, _length);
+                }
+
+                return result;
+            }
+
+            private void EnsureCapacity(int required)
+            {
+                if (required <= _buffer.Length)
+                {
+                    return;
+                }
+
+                int size = _buffer.Length;
+                while (size < required)
+                {
+                    size *= 2;
+                }
+
+                var next = new byte[size];
+                if (_length > 0)
+                {
+                    Buffer.BlockCopy(_buffer, 0, next, 0, _length);
+                }
+
+                _buffer = next;
             }
         }
     }

@@ -97,6 +97,41 @@ namespace Dlisio.Tests.Lis
         }
 
         [Fact]
+        public void TrySkipNextLogicalRecord_ReadsRecordInfoWithoutMaterializingPayload()
+        {
+            byte[] first = BuildPhysicalRecord(
+                0x0001,
+                BuildLrhPayload((byte)LisRecordType.DataFormatSpecification, 0x01, 0x21, 0x22));
+            byte[] second = BuildPhysicalRecord(
+                0x0002,
+                new byte[] { 0x23, 0x24, 0x25 });
+            using var stream = new MemoryStream(Concat(first, second));
+            var reader = new LisReader();
+
+            bool ok = reader.TrySkipNextLogicalRecord(stream, out LisRecordInfo? info);
+
+            Assert.True(ok);
+            Assert.NotNull(info);
+            Assert.Equal(0L, info!.Offset);
+            Assert.Equal(LisRecordType.DataFormatSpecification, info.Type);
+            Assert.Equal(2, info.PhysicalRecordCount);
+            Assert.Equal(5, info.DataLength);
+            Assert.Equal(stream.Length, stream.Position);
+        }
+
+        [Fact]
+        public void TrySkipNextLogicalRecord_AtEof_ReturnsFalse()
+        {
+            using var stream = new MemoryStream(Array.Empty<byte>());
+            var reader = new LisReader();
+
+            bool ok = reader.TrySkipNextLogicalRecord(stream, out LisRecordInfo? info);
+
+            Assert.False(ok);
+            Assert.Null(info);
+        }
+
+        [Fact]
         public void ReadNextLogicalRecord_SinglePhysicalRecord_ParsesPayload()
         {
             byte[] payload = BuildLrhPayload((byte)LisRecordType.FileHeader, 0x01, 0x10, 0x11, 0x12);
