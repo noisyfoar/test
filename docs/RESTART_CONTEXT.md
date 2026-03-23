@@ -82,3 +82,4 @@ dotnet test LisNet.sln
    - `src/Lis.Gui/MainForm.cs`
    - `src/Lis.Core/Lis/LisHeaderParser.cs`
    - `tests/Lis.Tests/Lis/*`
+   - `docs/MAINTENANCE_SUMMARY.md`

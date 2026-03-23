@@ -139,3 +139,8 @@ dotnet run --project src/Lis.Gui/Lis.Gui.csproj
 ## План
 
 Детальный план дальнейшей реализации: `docs/implementation-plan.md`.
+
+## Поддержка и читаемость кода
+
+Для поддержки проекта и быстрого входа в кодовую базу:
+- `docs/MAINTENANCE_SUMMARY.md` — архитектурный summary и правила безопасного рефакторинга.
