@@ -55,18 +55,18 @@ namespace Dlisio.Tests.Lis
         }
 
         [Fact]
-        public void ParseFrames_FloatRepCode_ReturnsRawBytes()
+        public void ParseFrames_FloatRepCode_ReturnsFloatValue()
         {
             var format = BuildFormat(
                 BuildSpec("FS", samples: 1, reprc: (byte)LisRepresentationCode.Float32));
 
-            var record = BuildFdataRecord(LisRecordType.NormalData, new byte[] { 0xDE, 0xAD, 0xBE, 0xEF });
+            var record = BuildFdataRecord(LisRecordType.NormalData, new byte[] { 0x00, 0x00, 0x00, 0x00 });
             var parser = new LisFdataParser();
 
             var frames = parser.ParseFrames(record, format);
 
             Assert.Single(frames);
-            Assert.Equal(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF }, (byte[])frames[0].Channels[0].Samples[0]);
+            Assert.Equal(0.0f, (float)frames[0].Channels[0].Samples[0]);
         }
 
         [Fact]

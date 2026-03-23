@@ -130,13 +130,126 @@ namespace Dlisio.Core.Lis
                 case LisRepresentationCode.Float32Low:
                 case LisRepresentationCode.Float32:
                 case LisRepresentationCode.Float32Fixed:
-                    var raw = new byte[valueSize];
-                    Buffer.BlockCopy(data, offset, raw, 0, valueSize);
-                    return raw;
+                    return DecodeFloatingValue(data, offset, (LisRepresentationCode)representationCode);
 
                 default:
                     throw new LisParseException("Unsupported LIS representation code in LisFdataParser.");
             }
+        }
+
+        private static float DecodeFloatingValue(byte[] data, int offset, LisRepresentationCode code)
+        {
+            switch (code)
+            {
+                case LisRepresentationCode.Float16:
+                    return DecodeF16(data, offset);
+
+                case LisRepresentationCode.Float32:
+                    return DecodeF32(data, offset);
+
+                case LisRepresentationCode.Float32Low:
+                    return DecodeF32Low(data, offset);
+
+                case LisRepresentationCode.Float32Fixed:
+                    return DecodeF32Fixed(data, offset);
+
+                default:
+                    throw new LisParseException("Unsupported floating representation code.");
+            }
+        }
+
+        private static float DecodeF16(byte[] data, int offset)
+        {
+            ushort value = (ushort)((data[offset] << 8) | data[offset + 1]);
+
+            int signBit = (value & 0x8000) >> 15;
+            int expBits = (value & 0x000F);
+            uint fracBits = (uint)((value & 0x7FF0) >> 4);
+
+            float sign = signBit == 1 ? -1.0f : 1.0f;
+            float exponent = expBits;
+            uint frac2Complement = TwosComplement(signBit == 1, fracBits, 11);
+            float fraction = (float)(frac2Complement * Math.Pow(2.0, -11));
+
+            return (float)(sign * fraction * Math.Pow(2.0, exponent));
+        }
+
+        private static float DecodeF32(byte[] data, int offset)
+        {
+            uint value =
+                ((uint)data[offset] << 24) |
+                ((uint)data[offset + 1] << 16) |
+                ((uint)data[offset + 2] << 8) |
+                data[offset + 3];
+
+            int signBit = (int)((value & 0x80000000) >> 31);
+            byte expBits = (byte)((value & 0x7F800000) >> 23);
+            uint fracBits = value & 0x007FFFFF;
+
+            float sign = signBit == 1 ? -1.0f : 1.0f;
+            byte exponentOnesComplement = signBit == 1 ? (byte)~expBits : expBits;
+            float exponent = exponentOnesComplement - 128.0f;
+            uint frac2Complement = TwosComplement(signBit == 1, fracBits, 23);
+            float fraction = (float)(frac2Complement * Math.Pow(2.0, -23));
+
+            return (float)(sign * fraction * Math.Pow(2.0, exponent));
+        }
+
+        private static float DecodeF32Low(byte[] data, int offset)
+        {
+            uint value =
+                ((uint)data[offset] << 24) |
+                ((uint)data[offset + 1] << 16) |
+                ((uint)data[offset + 2] << 8) |
+                data[offset + 3];
+
+            int fractionSignBit = (int)((value & 0x00008000) >> 15);
+            int exponentSignBit = (int)((value & 0x80000000) >> 31);
+            uint expBits = (value & 0x7FFF0000) >> 16;
+            uint fracBits = value & 0x00007FFF;
+
+            float fractionSign = fractionSignBit == 1 ? -1.0f : 1.0f;
+            float exponentSign = exponentSignBit == 1 ? -1.0f : 1.0f;
+
+            uint exp2Complement = TwosComplement(exponentSignBit == 1, expBits, 15);
+            float exponent = exponentSign * exp2Complement;
+            uint frac2Complement = TwosComplement(fractionSignBit == 1, fracBits, 15);
+
+            return (float)(fractionSign * frac2Complement * Math.Pow(2.0, exponent - 15.0f));
+        }
+
+        private static float DecodeF32Fixed(byte[] data, int offset)
+        {
+            uint value =
+                ((uint)data[offset] << 24) |
+                ((uint)data[offset + 1] << 16) |
+                ((uint)data[offset + 2] << 8) |
+                data[offset + 3];
+
+            int signBit = (int)((value & 0x80000000) >> 31);
+            uint dataBits = value & 0x7FFFFFFF;
+            float sign = signBit == 1 ? -1.0f : 1.0f;
+
+            uint data2Complement = TwosComplement(signBit == 1, dataBits, 31);
+            uint integerBits = (data2Complement & 0xFFFF0000) >> 16;
+            uint realBits = data2Complement & 0x0000FFFF;
+
+            float integerPart = integerBits;
+            float realPart = (float)(realBits * Math.Pow(2.0, -16));
+
+            return sign * (integerPart + realPart);
+        }
+
+        private static uint TwosComplement(bool isNegative, uint value, byte bitLength)
+        {
+            if (!isNegative)
+            {
+                return value;
+            }
+
+            uint mask = (uint)((1UL << bitLength) - 1UL);
+            uint onesComplement = (~value) & mask;
+            return onesComplement + 1U;
         }
     }
 }
