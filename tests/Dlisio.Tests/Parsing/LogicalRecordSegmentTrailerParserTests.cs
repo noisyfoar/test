@@ -7,6 +7,32 @@ namespace Dlisio.Tests.Parsing
     public sealed class LogicalRecordSegmentTrailerParserTests
     {
         [Fact]
+        public void Parse_NullSegmentData_ThrowsArgumentNullException()
+        {
+            LogicalRecordSegmentHeader header = LogicalRecordSegmentHeaderParser.Parse(
+                new byte[] { 0x00, 0x10, 0x00, 0x01 });
+
+            Assert.Throws<ArgumentNullException>(
+                () => LogicalRecordSegmentTrailerParser.Parse(null!, header, 4));
+        }
+
+        [Fact]
+        public void Parse_NullHeader_ThrowsArgumentNullException()
+        {
+            var segment = new byte[]
+            {
+                0x00, 0x10,
+                0x00,
+                0x01,
+                0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+                0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B
+            };
+
+            Assert.Throws<ArgumentNullException>(
+                () => LogicalRecordSegmentTrailerParser.Parse(segment, null!, 4));
+        }
+
+        [Fact]
         public void Parse_ChecksumAndTrailingLength_ReturnsExpectedValues()
         {
             var segment = new byte[]
@@ -130,6 +156,86 @@ namespace Dlisio.Tests.Parsing
                 () => LogicalRecordSegmentTrailerParser.Parse(segment, header, 12));
 
             Assert.Contains("overlaps", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Parse_SegmentLengthMismatch_ThrowsDlisParseException()
+        {
+            LogicalRecordSegmentHeader header = LogicalRecordSegmentHeaderParser.Parse(
+                new byte[] { 0x00, 0x10, 0x00, 0x01 });
+
+            var segment = new byte[18];
+            segment[0] = 0x00;
+            segment[1] = 0x10;
+            segment[2] = 0x00;
+            segment[3] = 0x01;
+
+            DlisParseException ex = Assert.Throws<DlisParseException>(
+                () => LogicalRecordSegmentTrailerParser.Parse(segment, header, 4));
+
+            Assert.Contains("does not match", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Parse_PayloadOffsetOutOfRange_ThrowsArgumentOutOfRangeException()
+        {
+            var segment = new byte[]
+            {
+                0x00, 0x10,
+                0x00,
+                0x01,
+                0x10, 0x11, 0x12, 0x13, 0x14, 0x15,
+                0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B
+            };
+
+            LogicalRecordSegmentHeader header = LogicalRecordSegmentHeaderParser.Parse(segment);
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => LogicalRecordSegmentTrailerParser.Parse(segment, header, 3));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => LogicalRecordSegmentTrailerParser.Parse(segment, header, 17));
+        }
+
+        [Fact]
+        public void Parse_NotEnoughBytesForTrailingLength_ThrowsDlisParseException()
+        {
+            var segment = new byte[]
+            {
+                0x00, 0x10, // length = 16
+                0x02,       // trailing length only
+                0x01,
+                0x50, 0x51, 0x52, 0x53, 0x54, 0x55,
+                0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B
+            };
+
+            LogicalRecordSegmentHeader header = LogicalRecordSegmentHeaderParser.Parse(segment);
+
+            DlisParseException ex = Assert.Throws<DlisParseException>(
+                () => LogicalRecordSegmentTrailerParser.Parse(segment, header, 15));
+
+            Assert.Contains("not enough bytes", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Parse_PadCountOne_ReturnsNoPaddingBytes()
+        {
+            var segment = new byte[]
+            {
+                0x00, 0x10, // length = 16
+                0x01,       // padding only
+                0x01,
+                0x60, 0x61, 0x62, 0x63, 0x64, 0x65,
+                0x66, 0x67, 0x68, 0x69, 0x6A,
+                0x01        // pad count = 1 (only the counter byte)
+            };
+
+            LogicalRecordSegmentHeader header = LogicalRecordSegmentHeaderParser.Parse(segment);
+
+            LogicalRecordSegmentTrailer trailer = LogicalRecordSegmentTrailerParser.Parse(segment, header, 4);
+
+            Assert.Equal((byte)1, trailer.PadCount);
+            Assert.Empty(trailer.PaddingBytes);
+            Assert.Equal(1, trailer.TrailerLength);
         }
     }
 }

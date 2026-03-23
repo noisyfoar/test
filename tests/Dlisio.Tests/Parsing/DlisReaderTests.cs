@@ -8,6 +8,38 @@ namespace Dlisio.Tests.Parsing
     public sealed class DlisReaderTests
     {
         [Fact]
+        public void ReadNextLogicalRecord_NullStream_ThrowsArgumentNullException()
+        {
+            var reader = new DlisReader();
+            Assert.Throws<ArgumentNullException>(() => reader.ReadNextLogicalRecord(null!));
+        }
+
+        [Fact]
+        public void ReadNextSegment_NullStream_ThrowsArgumentNullException()
+        {
+            var reader = new DlisReader();
+            Assert.Throws<ArgumentNullException>(() => reader.ReadNextSegment(null!));
+        }
+
+        [Fact]
+        public void ReadFirstSegmentHeader_NullStream_ThrowsArgumentNullException()
+        {
+            var reader = new DlisReader();
+            Assert.Throws<ArgumentNullException>(() => reader.ReadFirstSegmentHeader(null!));
+        }
+
+        [Fact]
+        public void ReadMethods_UnreadableStream_ThrowArgumentException()
+        {
+            var reader = new DlisReader();
+            using var stream = new NonReadableStream();
+
+            Assert.Throws<ArgumentException>(() => reader.ReadNextLogicalRecord(stream));
+            Assert.Throws<ArgumentException>(() => reader.ReadNextSegment(stream));
+            Assert.Throws<ArgumentException>(() => reader.ReadFirstSegmentHeader(stream));
+        }
+
+        [Fact]
         public void ReadNextLogicalRecord_ReadsUntilLastSegment()
         {
             byte[] first = BuildSegment(0x20, 0x44, 0x10);
@@ -24,6 +56,29 @@ namespace Dlisio.Tests.Parsing
             Assert.Equal(24, record.Body.Length);
             Assert.Equal((byte)0x10, record.Body[0]);
             Assert.Equal((byte)0x2B, record.Body[23]);
+        }
+
+        [Fact]
+        public void ReadNextLogicalRecord_CanReadSequentialRecordsFromSameStream()
+        {
+            byte[] first1 = BuildSegment(0x20, 0x44, 0x10);
+            byte[] first2 = BuildSegment(0x40, 0x44, 0x20);
+            byte[] second1 = BuildSegment(0x00, 0x55, 0x30);
+
+            byte[] streamData = Concat(first1, first2, second1);
+
+            using var stream = new MemoryStream(streamData);
+            var reader = new DlisReader();
+
+            LogicalRecord record1 = reader.ReadNextLogicalRecord(stream);
+            LogicalRecord record2 = reader.ReadNextLogicalRecord(stream);
+
+            Assert.Equal((byte)0x44, record1.LogicalRecordType);
+            Assert.Equal(2, record1.Segments.Count);
+            Assert.Equal((byte)0x55, record2.LogicalRecordType);
+            Assert.Equal(1, record2.Segments.Count);
+            Assert.Equal(12, record2.Body.Length);
+            Assert.Equal((byte)0x30, record2.Body[0]);
         }
 
         [Fact]
@@ -152,6 +207,54 @@ namespace Dlisio.Tests.Parsing
             Buffer.BlockCopy(first, 0, result, 0, first.Length);
             Buffer.BlockCopy(second, 0, result, first.Length, second.Length);
             return result;
+        }
+
+        private static byte[] Concat(byte[] first, byte[] second, byte[] third)
+        {
+            var result = new byte[first.Length + second.Length + third.Length];
+            Buffer.BlockCopy(first, 0, result, 0, first.Length);
+            Buffer.BlockCopy(second, 0, result, first.Length, second.Length);
+            Buffer.BlockCopy(third, 0, result, first.Length + second.Length, third.Length);
+            return result;
+        }
+
+        private sealed class NonReadableStream : Stream
+        {
+            public override bool CanRead => false;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => 0;
+
+            public override long Position
+            {
+                get => 0;
+                set => throw new NotSupportedException();
+            }
+
+            public override void Flush()
+            {
+                throw new NotSupportedException();
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override long Seek(long offset, SeekOrigin origin)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void SetLength(long value)
+            {
+                throw new NotSupportedException();
+            }
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                throw new NotSupportedException();
+            }
         }
     }
 }

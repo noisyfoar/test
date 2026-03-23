@@ -7,6 +7,12 @@ namespace Dlisio.Tests.Parsing
     public sealed class LogicalRecordSegmentParserTests
     {
         [Fact]
+        public void Parse_NullInput_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() => LogicalRecordSegmentParser.Parse(null!));
+        }
+
+        [Fact]
         public void Parse_NoTrailerAndNoEncryption_ReturnsBodyOnlySegment()
         {
             var segment = new byte[]
@@ -79,6 +85,62 @@ namespace Dlisio.Tests.Parsing
                 () => LogicalRecordSegmentParser.Parse(segment));
 
             Assert.Contains("encryption packet length", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Parse_LengthMismatchAgainstHeader_ThrowsDlisParseException()
+        {
+            var segment = new byte[18];
+            segment[0] = 0x00;
+            segment[1] = 0x10; // header says 16
+            segment[2] = 0x00;
+            segment[3] = 0x01;
+
+            DlisParseException ex = Assert.Throws<DlisParseException>(
+                () => LogicalRecordSegmentParser.Parse(segment));
+
+            Assert.Contains("does not match", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Parse_EncryptionPacketExceedsBoundary_ThrowsDlisParseException()
+        {
+            var segment = new byte[]
+            {
+                0x00, 0x10, // length = 16
+                0x18,       // encrypted + has encryption packet
+                0x01,
+                0x00, 0x0E, // packet length = 14 => exceeds (4 + 14 > 16)
+                0xAA, 0xBB, 0xCC, 0xDD,
+                0x01, 0x02, 0x03, 0x04,
+                0x05, 0x06
+            };
+
+            DlisParseException ex = Assert.Throws<DlisParseException>(
+                () => LogicalRecordSegmentParser.Parse(segment));
+
+            Assert.Contains("exceeds", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void Parse_EncryptionPacketConsumesRemainingPayload_ReturnsEmptyBody()
+        {
+            var segment = new byte[]
+            {
+                0x00, 0x10, // length = 16
+                0x18,       // encrypted + packet
+                0x77,
+                0x00, 0x0C, // packet length = 12
+                0x12, 0x34,
+                0x41, 0x42, 0x43, 0x44,
+                0x45, 0x46, 0x47, 0x48
+            };
+
+            LogicalRecordSegment parsed = LogicalRecordSegmentParser.Parse(segment);
+
+            Assert.Equal(12, parsed.EncryptionPacket.Length);
+            Assert.Empty(parsed.Body);
+            Assert.Equal(0, parsed.Trailer.TrailerLength);
         }
     }
 }

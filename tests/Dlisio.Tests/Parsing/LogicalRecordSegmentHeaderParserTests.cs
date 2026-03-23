@@ -7,6 +7,12 @@ namespace Dlisio.Tests.Parsing
     public sealed class LogicalRecordSegmentHeaderParserTests
     {
         [Fact]
+        public void Parse_NullData_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() => LogicalRecordSegmentHeaderParser.Parse(null!));
+        }
+
+        [Fact]
         public void Parse_ValidHeader_ReturnsExpectedValues()
         {
             var bytes = new byte[]
@@ -82,6 +88,39 @@ namespace Dlisio.Tests.Parsing
             var bytes = new byte[] { 0x00, 0x10, 0x00 };
 
             Assert.Throws<DlisParseException>(() => LogicalRecordSegmentHeaderParser.Parse(bytes));
+        }
+
+        [Fact]
+        public void Parse_WithOffset_ParsesHeaderAtOffset()
+        {
+            var bytes = new byte[]
+            {
+                0xFF, 0xEE, 0xDD, 0xCC,
+                0x00, 0x10, // length = 16
+                0x1E,       // encrypted + packet + checksum + trailing length
+                0x55
+            };
+
+            LogicalRecordSegmentHeader header = LogicalRecordSegmentHeaderParser.Parse(bytes, 4);
+
+            Assert.Equal((ushort)16, header.SegmentLength);
+            Assert.Equal((byte)0x55, header.LogicalRecordType);
+            Assert.True(header.IsEncrypted);
+            Assert.True(header.HasEncryptionPacket);
+            Assert.True(header.HasChecksum);
+            Assert.True(header.HasTrailingLength);
+            Assert.False(header.HasPadding);
+        }
+
+        [Fact]
+        public void Parse_OffsetOutOfRange_ThrowsArgumentOutOfRangeException()
+        {
+            var bytes = new byte[] { 0x00, 0x10, 0x00, 0x01 };
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => LogicalRecordSegmentHeaderParser.Parse(bytes, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => LogicalRecordSegmentHeaderParser.Parse(bytes, 1));
         }
     }
 }
