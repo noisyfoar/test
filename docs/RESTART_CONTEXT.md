@@ -19,13 +19,14 @@
    - `LisIndexer` / `LisRecordIndex` / `LisRecordInfo` для индексации записей,
    - `LisFixedRecordParser` для fixed/text records,
    - `LisDfsrParser` для базового разбора DFSR,
-   - `LisFdataParser` для базового разбора FData.
+   - `LisFdataParser` для базового разбора FData,
+   - `LisLogicalFileParser` и `LisFileParser` для high-level парсинга.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 
 ## Текущее состояние качества
 
-- Unit-тесты: **83 passed, 0 failed**.
+- Unit-тесты: **91 passed, 0 failed**.
 - Проверка:
 
 ```bash
@@ -63,5 +64,7 @@ dotnet test DlisioNet.sln
    - `src/Dlisio.Core/Lis/LisFixedRecordParser.cs`
    - `src/Dlisio.Core/Lis/LisDfsrParser.cs`
    - `src/Dlisio.Core/Lis/LisFdataParser.cs`
+   - `src/Dlisio.Core/Lis/LisLogicalFileParser.cs`
+   - `src/Dlisio.Core/Lis/LisFileParser.cs`
    - `src/Dlisio.Core/Lis/LisHeaderParser.cs`
    - `tests/Dlisio.Tests/Lis/*`

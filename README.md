@@ -19,6 +19,9 @@
   - парсер fixed/text records (File/Reel/Tape Header/Trailer, text records),
   - начальный DFSR-парсер (entry blocks и spec blocks subtype 0/1).
   - начальный FData-парсер кадров (Normal/Alternate Data).
+  - high-level API:
+    - `LisLogicalFileParser`,
+    - `LisFileParser`.
 - Добавлены LIS unit-тесты в `tests/Dlisio.Tests/Lis`.
 
 ## Быстрая проверка
