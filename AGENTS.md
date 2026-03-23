@@ -5,7 +5,7 @@ Current project scope: **LIS79 only**. Do not add or reintroduce DLIS-specific i
 ## Cursor Cloud specific instructions
 
 - This repository configures Cloud Agent environment via `.cursor/environment.json`.
-- On agent startup, `.cursor/install-dotnet8.sh` ensures `.NET SDK 8` is installed and available on `PATH`.
+- On agent startup, `.cursor/install-dotnet.sh` ensures .NET SDK is installed and available on `PATH`.
 
 ### Quick environment checks
 
@@ -26,7 +26,6 @@ dotnet test DlisioNet.sln
 
 This validates:
 - `Dlisio.Core` builds for `net48` (library target)
-- LIS test harness builds/runs under `net8.0`
 - unit tests in `tests/Dlisio.Tests` pass
 
 ## Implementation workflow rule
