@@ -1,5 +1,7 @@
 # AGENTS
 
+Current project scope: **LIS79 only**. Do not add or reintroduce DLIS-specific implementation unless explicitly requested.
+
 ## Cursor Cloud specific instructions
 
 - This repository configures Cloud Agent environment via `.cursor/environment.json`.
