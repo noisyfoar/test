@@ -1,0 +1,17 @@
+# Build artifacts
+bin/
+obj/
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet packages (if packages folder is used)
+packages/
