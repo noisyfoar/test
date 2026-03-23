@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Dlisio.Core\Dlisio.Core.csproj" />
+    <Compile Include="..\..\src\Dlisio.Core\Lis\*.cs" Link="LisSource\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>
