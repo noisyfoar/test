@@ -5,6 +5,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisLogicalFilePartitioner
     {
+        /// <summary>
+        /// Подробно выполняет операцию «Partition» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public IReadOnlyList<LisLogicalFile> Partition(LisRecordIndex index)
         {
             if (index == null)
@@ -40,7 +44,7 @@ namespace Lis.Core.Lis
 
                 if (currentRecords.Count == 0)
                 {
-                    // Ignore records before first file header.
+                    // Игнорируем записи до первого заголовка файла.
                     continue;
                 }
 

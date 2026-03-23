@@ -7,6 +7,10 @@ namespace Lis.Core.Lis
     {
         private readonly List<LisRecordInfo> _records;
 
+        /// <summary>
+        /// Подробно выполняет операцию «LisLogicalFile» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisLogicalFile(
             IReadOnlyList<LisRecordInfo> records,
             LisRecordInfo? fileHeader,
@@ -40,6 +44,10 @@ namespace Lis.Core.Lis
 
         public bool IsComplete { get; }
 
+        /// <summary>
+        /// Подробно выполняет операцию «OfType» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public IReadOnlyList<LisRecordInfo> OfType(LisRecordType type)
         {
             var result = new List<LisRecordInfo>();

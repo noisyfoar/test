@@ -5,12 +5,12 @@ using System.IO;
 namespace Lis.Core.Lis
 {
     /// <summary>
-    /// Reads a LIS stream into a raw in-memory <see cref="LisDocument"/>.
+    /// Считывает LIS-поток в необработанное представление <see cref="LisDocument"/> в памяти.
     /// </summary>
     public sealed class LisImporter
     {
         /// <summary>
-        /// Opens and imports a LIS file by path.
+        /// Открывает и импортирует LIS-файл по указанному пути.
         /// </summary>
         public LisDocument Import(string path)
         {
@@ -29,7 +29,7 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
-        /// Imports all logical records from a readable, seekable stream.
+        /// Импортирует все логические записи из читаемого и позиционируемого потока.
         /// </summary>
         public LisDocument Import(Stream stream)
         {
@@ -48,7 +48,7 @@ namespace Lis.Core.Lis
                 throw new ArgumentException("Stream must be seekable.", nameof(stream));
             }
 
-            // Preserve caller stream state; importer is non-destructive.
+            // Сохраняем исходную позицию: импорт не должен менять состояние вызывающего кода.
             long originalPosition = stream.Position;
             stream.Position = 0;
             try

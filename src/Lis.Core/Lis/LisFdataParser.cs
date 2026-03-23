@@ -5,6 +5,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisFdataParser
     {
+        /// <summary>
+        /// Подробно выполняет операцию «ParseFrames» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public IReadOnlyList<LisFrameData> ParseFrames(
             LisLogicalRecord record,
             LisDataFormatSpecificationRecord format)
@@ -12,6 +16,10 @@ namespace Lis.Core.Lis
             return ParseFrames(record, format, selectedMnemonics: null, metrics: null);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseFrames» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public IReadOnlyList<LisFrameData> ParseFrames(
             LisLogicalRecord record,
             LisDataFormatSpecificationRecord format,
@@ -63,6 +71,10 @@ namespace Lis.Core.Lis
             return frames;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «AccumulateCurves» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public void AccumulateCurves(
             LisLogicalRecord record,
             LisDataFormatSpecificationRecord format,
@@ -118,6 +130,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «BuildValueSizes» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static int[] BuildValueSizes(LisDataFormatSpecificationRecord format)
         {
             if (format.SpecBlocks.Count == 0)
@@ -134,6 +150,10 @@ namespace Lis.Core.Lis
             return valueSizes;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ComputeFrameSize» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static int ComputeFrameSize(LisDataFormatSpecificationRecord format, int[] valueSizes)
         {
             int frameSize = 0;
@@ -150,6 +170,10 @@ namespace Lis.Core.Lis
             return frameSize;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ComputeFrameCount» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static int ComputeFrameCount(LisLogicalRecord record, int frameSize)
         {
             LisRecordType recordType = (LisRecordType)record.Header.Type;
@@ -167,6 +191,10 @@ namespace Lis.Core.Lis
             return record.Data.Length / frameSize;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ShouldDecode» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static bool ShouldDecode(string mnemonic, ISet<string>? selectedMnemonics)
         {
             if (selectedMnemonics == null || selectedMnemonics.Count == 0)
@@ -177,6 +205,10 @@ namespace Lis.Core.Lis
             return selectedMnemonics.Contains(mnemonic);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «GetFixedValueSize» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static int GetFixedValueSize(byte representationCode)
         {
             switch ((LisRepresentationCode)representationCode)
@@ -205,6 +237,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeSamples» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void DecodeSamples(byte[] data, ref int offset, byte representationCode, int valueSize, object[] destination)
         {
             switch ((LisRepresentationCode)representationCode)
@@ -266,6 +302,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeAndAppendSamples» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void DecodeAndAppendSamples(
             byte[] data,
             ref int offset,
@@ -333,6 +373,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeFloatingValue» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static float DecodeFloatingValue(byte[] data, int offset, LisRepresentationCode code)
         {
             switch (code)
@@ -354,6 +398,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeF16» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static float DecodeF16(byte[] data, int offset)
         {
             ushort value = (ushort)((data[offset] << 8) | data[offset + 1]);
@@ -370,6 +418,10 @@ namespace Lis.Core.Lis
             return (float)(sign * fraction * Math.Pow(2.0, exponent));
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeF32» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static float DecodeF32(byte[] data, int offset)
         {
             uint value =
@@ -391,6 +443,10 @@ namespace Lis.Core.Lis
             return (float)(sign * fraction * Math.Pow(2.0, exponent));
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeF32Low» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static float DecodeF32Low(byte[] data, int offset)
         {
             uint value =
@@ -414,6 +470,10 @@ namespace Lis.Core.Lis
             return (float)(fractionSign * frac2Complement * Math.Pow(2.0, exponent - 15.0f));
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeF32Fixed» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static float DecodeF32Fixed(byte[] data, int offset)
         {
             uint value =
@@ -436,6 +496,10 @@ namespace Lis.Core.Lis
             return sign * (integerPart + realPart);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «TwosComplement» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static uint TwosComplement(bool isNegative, uint value, byte bitLength)
         {
             if (!isNegative)

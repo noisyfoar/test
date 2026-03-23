@@ -5,12 +5,12 @@ using System.IO;
 namespace Lis.Core.Lis
 {
     /// <summary>
-    /// Parses one logical LIS file scope into typed content objects.
+    /// Разбирает область одного логического LIS-файла в типизированные объекты.
     /// </summary>
     public sealed class LisLogicalFileParser
     {
         /// <summary>
-        /// Parses with default options.
+        /// Разбирает логический файл с настройками по умолчанию.
         /// </summary>
         public LisLogicalFileData Parse(Stream stream, LisLogicalFile logicalFile)
         {
@@ -18,7 +18,7 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
-        /// Parses one logical file with selective materialization options.
+        /// Разбирает логический файл с выборочной материализацией данных.
         /// </summary>
         public LisLogicalFileData Parse(
             Stream stream,
@@ -116,6 +116,10 @@ namespace Lis.Core.Lis
                 BuildReadonlyCurves(curveAccumulator));
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «HandleDataRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void HandleDataRecord(
             LisLogicalRecord record,
             LisDataFormatSpecificationRecord? activeDfsr,
@@ -150,6 +154,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «BuildReadonlyCurves» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static IReadOnlyDictionary<string, IReadOnlyList<object>> BuildReadonlyCurves(
             Dictionary<string, List<object>> curveAccumulator)
         {

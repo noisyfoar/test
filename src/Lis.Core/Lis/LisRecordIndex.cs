@@ -9,6 +9,10 @@ namespace Lis.Core.Lis
         private readonly List<LisRecordInfo> _implicitRecords;
         private readonly List<LisRecordInfo> _explicitRecords;
 
+        /// <summary>
+        /// Подробно выполняет операцию «LisRecordIndex» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisRecordIndex(IReadOnlyList<LisRecordInfo> records)
         {
             if (records == null)
@@ -55,6 +59,10 @@ namespace Lis.Core.Lis
             get { return _records.Count; }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «OfType» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public IReadOnlyList<LisRecordInfo> OfType(LisRecordType type)
         {
             var result = new List<LisRecordInfo>();

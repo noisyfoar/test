@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisTapeTrailerRecord
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisTapeTrailerRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisTapeTrailerRecord(
             string serviceName,
             string date,

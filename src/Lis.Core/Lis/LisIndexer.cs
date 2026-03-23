@@ -6,6 +6,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisIndexer
     {
+        /// <summary>
+        /// Подробно выполняет операцию «Index» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisRecordIndex Index(Stream stream)
         {
             if (stream == null)

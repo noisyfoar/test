@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisDfsrSpecBlock
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisDfsrSpecBlock» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisDfsrSpecBlock(
             byte subtype,
             string mnemonic,
@@ -56,7 +60,7 @@ namespace Lis.Core.Lis
 
         public byte RepresentationCode { get; }
 
-        // Subtype 0 fields.
+        // Поля для subtype 0.
         public byte ApiLogType { get; }
 
         public byte ApiCurveType { get; }
@@ -67,7 +71,7 @@ namespace Lis.Core.Lis
 
         public byte ProcessLevel { get; }
 
-        // Subtype 1 fields.
+        // Поля для subtype 1.
         public int ApiCodes { get; }
 
         public byte[] ProcessIndicators { get; }

@@ -4,13 +4,17 @@ namespace Lis.Core.Lis
     {
         public const int HeaderLength = 4;
 
-        // LIS79 PRH attribute bits.
+        // Биты атрибутов PRH по спецификации LIS79.
         public const ushort AttributeChecksum = 0x3000;
         public const ushort AttributeFileNumber = 0x0400;
         public const ushort AttributeRecordNumber = 0x0200;
         public const ushort AttributePredecessor = 0x0002;
         public const ushort AttributeSuccessor = 0x0001;
 
+        /// <summary>
+        /// Подробно выполняет операцию «LisPhysicalRecordHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisPhysicalRecordHeader(ushort length, ushort attributes)
         {
             Length = length;
@@ -74,7 +78,7 @@ namespace Lis.Core.Lis
         {
             get
             {
-                // First PR in a LR must include LRH (2 bytes). Continuation PR does not.
+                // Первый PR в составе LR обязан содержать LRH (2 байта), continuation PR — нет.
                 int baseLength = HasPredecessor ? HeaderLength : HeaderLength + LisLogicalRecordHeader.HeaderLength;
                 return baseLength + TrailerLength;
             }

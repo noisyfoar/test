@@ -4,6 +4,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisLogicalFileData
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisLogicalFileData» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisLogicalFileData(
             LisFileHeaderRecord? fileHeader,
             LisFileTrailerRecord? fileTrailer,

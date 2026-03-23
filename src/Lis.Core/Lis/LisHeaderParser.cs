@@ -4,6 +4,10 @@ namespace Lis.Core.Lis
 {
     public static class LisHeaderParser
     {
+        /// <summary>
+        /// Подробно выполняет операцию «ParsePhysicalRecordHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public static LisPhysicalRecordHeader ParsePhysicalRecordHeader(byte[] data)
         {
             if (data == null)
@@ -14,6 +18,10 @@ namespace Lis.Core.Lis
             return ParsePhysicalRecordHeader(data, 0);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParsePhysicalRecordHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public static LisPhysicalRecordHeader ParsePhysicalRecordHeader(byte[] data, int offset)
         {
             if (data == null)
@@ -39,6 +47,10 @@ namespace Lis.Core.Lis
             return header;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseLogicalRecordHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public static LisLogicalRecordHeader ParseLogicalRecordHeader(byte[] data)
         {
             if (data == null)
@@ -49,6 +61,10 @@ namespace Lis.Core.Lis
             return ParseLogicalRecordHeader(data, 0);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseLogicalRecordHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public static LisLogicalRecordHeader ParseLogicalRecordHeader(byte[] data, int offset)
         {
             if (data == null)
@@ -71,6 +87,10 @@ namespace Lis.Core.Lis
             return new LisLogicalRecordHeader(type, attributes);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «IsPadBytes» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public static bool IsPadBytes(byte[] bytes, int offset, int count)
         {
             if (bytes == null)
@@ -105,6 +125,10 @@ namespace Lis.Core.Lis
             return true;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadUInt16BigEndian» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static ushort ReadUInt16BigEndian(byte[] data, int offset)
         {
             return (ushort)((data[offset] << 8) | data[offset + 1]);

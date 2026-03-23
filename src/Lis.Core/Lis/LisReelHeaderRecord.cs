@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisReelHeaderRecord
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisReelHeaderRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisReelHeaderRecord(
             string serviceName,
             string date,

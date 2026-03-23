@@ -10,6 +10,10 @@ namespace Lis.Core.Lis
 
         private static readonly Encoding Encoding = Encoding.ASCII;
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseFileHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisFileHeaderRecord ParseFileHeader(LisLogicalRecord record)
         {
             if (record == null)
@@ -43,6 +47,10 @@ namespace Lis.Core.Lis
                 previousFileName);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseFileTrailer» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisFileTrailerRecord ParseFileTrailer(LisLogicalRecord record)
         {
             if (record == null)
@@ -76,6 +84,10 @@ namespace Lis.Core.Lis
                 nextFileName);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseReelHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisReelHeaderRecord ParseReelHeader(LisLogicalRecord record)
         {
             if (record == null)
@@ -89,6 +101,10 @@ namespace Lis.Core.Lis
             return ParseReelHeaderCore(record.Data);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseReelTrailer» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisReelTrailerRecord ParseReelTrailer(LisLogicalRecord record)
         {
             if (record == null)
@@ -102,6 +118,10 @@ namespace Lis.Core.Lis
             return ParseReelTrailerCore(record.Data);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseTapeHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisTapeHeaderRecord ParseTapeHeader(LisLogicalRecord record)
         {
             if (record == null)
@@ -115,6 +135,10 @@ namespace Lis.Core.Lis
             return ParseTapeHeaderCore(record.Data);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseTapeTrailer» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisTapeTrailerRecord ParseTapeTrailer(LisLogicalRecord record)
         {
             if (record == null)
@@ -128,6 +152,10 @@ namespace Lis.Core.Lis
             return ParseTapeTrailerCore(record.Data);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseTextRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisTextRecord ParseTextRecord(LisLogicalRecord record)
         {
             if (record == null)
@@ -149,6 +177,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseReelHeaderCore» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static LisReelHeaderRecord ParseReelHeaderCore(byte[] data)
         {
             int offset = 0;
@@ -176,6 +208,10 @@ namespace Lis.Core.Lis
                 comment);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseReelTrailerCore» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static LisReelTrailerRecord ParseReelTrailerCore(byte[] data)
         {
             int offset = 0;
@@ -203,6 +239,10 @@ namespace Lis.Core.Lis
                 comment);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseTapeHeaderCore» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static LisTapeHeaderRecord ParseTapeHeaderCore(byte[] data)
         {
             int offset = 0;
@@ -230,6 +270,10 @@ namespace Lis.Core.Lis
                 comment);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseTapeTrailerCore» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static LisTapeTrailerRecord ParseTapeTrailerCore(byte[] data)
         {
             int offset = 0;
@@ -257,6 +301,10 @@ namespace Lis.Core.Lis
                 comment);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «EnsureRecordType» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void EnsureRecordType(LisLogicalRecord record, LisRecordType expected)
         {
             LisRecordType actual = (LisRecordType)record.Header.Type;
@@ -267,6 +315,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «EnsureLengthAtLeast» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void EnsureLengthAtLeast(byte[] data, int expected, string name)
         {
             if (data.Length < expected)
@@ -276,6 +328,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadFixedString» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static string ReadFixedString(byte[] data, ref int offset, int length)
         {
             string result = DecodeString(data, offset, length, trimRight: true);
@@ -283,6 +339,10 @@ namespace Lis.Core.Lis
             return result;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeString» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static string DecodeString(byte[] data, int offset, int length, bool trimRight)
         {
             string value = Encoding.GetString(data, offset, length);

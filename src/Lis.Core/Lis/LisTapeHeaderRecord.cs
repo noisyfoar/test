@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisTapeHeaderRecord
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisTapeHeaderRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisTapeHeaderRecord(
             string serviceName,
             string date,

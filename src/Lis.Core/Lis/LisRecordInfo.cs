@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisRecordInfo
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisRecordInfo» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisRecordInfo(
             long offset,
             LisRecordType type,

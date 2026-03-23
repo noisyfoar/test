@@ -4,12 +4,12 @@ using System.IO;
 namespace Lis.Core.Lis
 {
     /// <summary>
-    /// Writes raw logical records back to LIS transport layout.
+    /// Выполняет запись логических записей обратно в транспортный LIS-формат.
     /// </summary>
     public sealed class LisExporter
     {
         /// <summary>
-        /// Exports a document to a file path.
+        /// Экспортирует документ LIS в файл по указанному пути.
         /// </summary>
         public void Export(string path, LisDocument document, LisExportOptions? options = null)
         {
@@ -28,7 +28,7 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
-        /// Exports a document to a writable stream.
+        /// Экспортирует документ LIS в поток с поддержкой записи.
         /// </summary>
         public void Export(Stream stream, LisDocument document, LisExportOptions? options = null)
         {
@@ -64,6 +64,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «WriteLogicalRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void WriteLogicalRecord(Stream stream, LisLogicalRecord record, int maxPayloadLength)
         {
             int dataOffset = 0;
@@ -72,7 +76,7 @@ namespace Lis.Core.Lis
 
             while (firstSegment || dataRemaining > 0)
             {
-                // Only first segment carries LRH bytes, therefore its payload capacity is smaller.
+                // Только первый сегмент содержит LRH, поэтому его полезная ёмкость меньше.
                 int segmentOverhead = firstSegment ? LisLogicalRecordHeader.HeaderLength : 0;
                 int maxDataInSegment = maxPayloadLength - segmentOverhead;
                 int segmentDataLength = Math.Min(dataRemaining, maxDataInSegment);
@@ -115,6 +119,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «WriteUInt16BigEndian» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void WriteUInt16BigEndian(Stream stream, ushort value)
         {
             stream.WriteByte((byte)(value >> 8));

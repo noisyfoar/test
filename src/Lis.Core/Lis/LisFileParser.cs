@@ -6,12 +6,12 @@ using System.Diagnostics;
 namespace Lis.Core.Lis
 {
     /// <summary>
-    /// High-level entry point that parses a whole LIS stream into logical files.
+    /// Точка входа высокого уровня для разбора всего LIS-потока на логические файлы.
     /// </summary>
     public sealed class LisFileParser
     {
         /// <summary>
-        /// Parses full logical file data with default options.
+        /// Выполняет полный разбор логических файлов с настройками по умолчанию.
         /// </summary>
         public IReadOnlyList<LisLogicalFileData> Parse(Stream stream)
         {
@@ -19,7 +19,7 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
-        /// Parses LIS stream with optional materialization settings and metrics.
+        /// Разбирает LIS-поток с настраиваемой материализацией и сбором метрик.
         /// </summary>
         public IReadOnlyList<LisLogicalFileData> Parse(
             Stream stream,
@@ -43,7 +43,7 @@ namespace Lis.Core.Lis
 
             options = options ?? new LisReadOptions();
             var stopwatch = Stopwatch.StartNew();
-            // Preserve caller state: parser always restores original position.
+            // Сохраняем позицию вызывающего кода: после разбора она будет восстановлена.
             long originalPosition = stream.Position;
             stream.Position = 0;
             try
@@ -73,7 +73,7 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
-        /// Convenience mode for curve extraction without frame materialization.
+        /// Упрощённый режим извлечения кривых без материализации кадров.
         /// </summary>
         public IReadOnlyList<LisLogicalFileData> ParseCurves(
             Stream stream,

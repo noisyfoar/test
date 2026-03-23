@@ -6,6 +6,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisReader
     {
+        /// <summary>
+        /// Подробно выполняет операцию «TrySkipNextLogicalRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public bool TrySkipNextLogicalRecord(Stream stream, out LisRecordInfo? info)
         {
             if (stream == null)
@@ -43,6 +47,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «TryReadNextLogicalRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public bool TryReadNextLogicalRecord(Stream stream, out LisLogicalRecord? record)
         {
             if (stream == null)
@@ -80,6 +88,10 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadNextLogicalRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisLogicalRecord ReadNextLogicalRecord(Stream stream)
         {
             if (stream == null)
@@ -156,6 +168,10 @@ namespace Lis.Core.Lis
             return new LisLogicalRecord(logicalRecordHeader, payloadBuilder.ToArray(), recordCount);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadNextPhysicalRecordHeader» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisPhysicalRecordHeader ReadNextPhysicalRecordHeader(Stream stream)
         {
             if (stream == null)
@@ -170,7 +186,7 @@ namespace Lis.Core.Lis
 
             byte[] headerBytes = ReadExactly(stream, LisPhysicalRecordHeader.HeaderLength, "LIS physical record header");
 
-            // Skip obvious 4-byte pad blocks (0x00... or 0x20...).
+            // Пропускаем очевидные 4-байтовые блоки паддинга (0x00... или 0x20...).
             while (LisHeaderParser.IsPadBytes(headerBytes, 0, headerBytes.Length))
             {
                 headerBytes = ReadExactly(
@@ -182,6 +198,10 @@ namespace Lis.Core.Lis
             return LisHeaderParser.ParsePhysicalRecordHeader(headerBytes, 0);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «SkipNextLogicalRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisRecordInfo SkipNextLogicalRecord(Stream stream)
         {
             if (stream == null)
@@ -280,6 +300,10 @@ namespace Lis.Core.Lis
                 dataLength);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadExactly» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static byte[] ReadExactly(Stream stream, int count, string componentName)
         {
             var buffer = new byte[count];
@@ -298,6 +322,10 @@ namespace Lis.Core.Lis
             return buffer;
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «SkipBytes» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void SkipBytes(Stream stream, int count, string componentName)
         {
             if (count <= 0)
@@ -308,6 +336,10 @@ namespace Lis.Core.Lis
             ReadExactly(stream, count, componentName);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «RemainingBytesArePadding» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static bool RemainingBytesArePadding(Stream stream, long fromPosition)
         {
             if (!stream.CanSeek || !stream.CanRead)
@@ -353,12 +385,20 @@ namespace Lis.Core.Lis
             private byte[] _buffer;
             private int _length;
 
+            /// <summary>
+            /// Подробно выполняет операцию «PayloadBuilder» для обработки данных формата LIS.
+            /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+            /// </summary>
             public PayloadBuilder(int initialCapacity)
             {
                 _buffer = new byte[Math.Max(initialCapacity, 16)];
                 _length = 0;
             }
 
+            /// <summary>
+            /// Подробно выполняет операцию «Append» для обработки данных формата LIS.
+            /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+            /// </summary>
             public void Append(byte[] source, int offset, int count)
             {
                 if (count <= 0)
@@ -371,6 +411,10 @@ namespace Lis.Core.Lis
                 _length += count;
             }
 
+            /// <summary>
+            /// Подробно выполняет операцию «ToArray» для обработки данных формата LIS.
+            /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+            /// </summary>
             public byte[] ToArray()
             {
                 var result = new byte[_length];
@@ -382,6 +426,10 @@ namespace Lis.Core.Lis
                 return result;
             }
 
+            /// <summary>
+            /// Подробно выполняет операцию «EnsureCapacity» для обработки данных формата LIS.
+            /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+            /// </summary>
             private void EnsureCapacity(int required)
             {
                 if (required <= _buffer.Length)

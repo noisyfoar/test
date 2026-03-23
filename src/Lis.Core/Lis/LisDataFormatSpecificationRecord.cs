@@ -4,6 +4,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisDataFormatSpecificationRecord
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisDataFormatSpecificationRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisDataFormatSpecificationRecord(
             IReadOnlyList<LisDfsrEntryBlock> entries,
             IReadOnlyList<LisDfsrSpecBlock> specBlocks,

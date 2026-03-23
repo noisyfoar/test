@@ -11,6 +11,10 @@ namespace Lis.Core.Lis
 
         private static readonly Encoding Encoding = Encoding.ASCII;
 
+        /// <summary>
+        /// Подробно выполняет операцию «Parse» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisDataFormatSpecificationRecord Parse(LisLogicalRecord record)
         {
             if (record == null)
@@ -96,6 +100,10 @@ namespace Lis.Core.Lis
             return new LisDataFormatSpecificationRecord(entries, specBlocks, subtype);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseSpecBlock» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static LisDfsrSpecBlock ParseSpecBlock(byte[] data, int offset, byte subtype)
         {
             string mnemonic = DecodeString(data, offset + 0, 4);
@@ -157,6 +165,10 @@ namespace Lis.Core.Lis
                 processIndicators);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ParseEntryValue» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static void ParseEntryValue(byte reprc, byte[] valueBytes, out int? numeric, out string? text)
         {
             numeric = null;
@@ -203,11 +215,19 @@ namespace Lis.Core.Lis
             }
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadInt16BigEndian» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static short ReadInt16BigEndian(byte[] data, int offset)
         {
             return (short)((data[offset] << 8) | data[offset + 1]);
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «ReadInt32BigEndian» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static int ReadInt32BigEndian(byte[] data, int offset)
         {
             return
@@ -217,6 +237,10 @@ namespace Lis.Core.Lis
                 data[offset + 3];
         }
 
+        /// <summary>
+        /// Подробно выполняет операцию «DecodeString» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         private static string DecodeString(byte[] data, int offset, int count)
         {
             return Encoding.GetString(data, offset, count).TrimEnd(' ', '\0');

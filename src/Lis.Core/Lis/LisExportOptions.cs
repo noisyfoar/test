@@ -1,15 +1,15 @@
 namespace Lis.Core.Lis
 {
     /// <summary>
-    /// Controls low-level write behavior for <see cref="LisExporter"/>.
+    /// Управляет низкоуровневым поведением записи в <see cref="LisExporter"/>.
     /// </summary>
     public sealed class LisExportOptions
     {
         /// <summary>
-        /// Creates export options with an optional physical record size cap.
+        /// Создаёт настройки экспорта с ограничением размера physical record.
         /// </summary>
         /// <param name="maxPhysicalRecordLength">
-        /// Maximum physical record length including PRH and payload.
+        /// Максимальная длина physical record, включая PRH и полезную нагрузку.
         /// </param>
         public LisExportOptions(ushort maxPhysicalRecordLength = ushort.MaxValue)
         {
@@ -17,7 +17,7 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
-        /// Maximum physical record length including the 4-byte PRH.
+        /// Максимальная длина physical record, включая 4-байтовый PRH.
         /// </summary>
         public ushort MaxPhysicalRecordLength { get; }
     }

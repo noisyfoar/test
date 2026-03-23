@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public sealed class LisDfsrEntryBlock
     {
+        /// <summary>
+        /// Подробно выполняет операцию «LisDfsrEntryBlock» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public LisDfsrEntryBlock(
             byte type,
             byte size,

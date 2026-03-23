@@ -2,6 +2,10 @@ namespace Lis.Core.Lis
 {
     public static class LisRecordTypeHelper
     {
+        /// <summary>
+        /// Подробно выполняет операцию «IsValid» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
         public static bool IsValid(byte value)
         {
             switch ((LisRecordType)value)

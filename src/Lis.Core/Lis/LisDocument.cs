@@ -4,17 +4,17 @@ using System.Collections.Generic;
 namespace Lis.Core.Lis
 {
     /// <summary>
-    /// In-memory container for a raw LIS stream represented as logical records.
+    /// Контейнер в памяти для необработанного представления LIS-потока в виде логических записей.
     /// </summary>
     public sealed class LisDocument
     {
         private readonly List<LisLogicalRecord> _records;
 
         /// <summary>
-        /// Creates a new document from an ordered record list.
+        /// Создаёт документ из упорядоченного списка логических записей.
         /// </summary>
         /// <param name="records">
-        /// Logical records in physical file order. Null items are not allowed.
+        /// Логические записи в физическом порядке файла; элементы со значением null не допускаются.
         /// </param>
         public LisDocument(IReadOnlyList<LisLogicalRecord> records)
         {
