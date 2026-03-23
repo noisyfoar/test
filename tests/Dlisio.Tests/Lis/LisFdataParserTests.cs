@@ -70,6 +70,51 @@ namespace Dlisio.Tests.Lis
         }
 
         [Fact]
+        public void ParseFrames_SelectedMnemonics_ReturnsOnlyRequestedChannels()
+        {
+            var format = BuildFormat(
+                BuildSpec("DEPTH", samples: 1, reprc: (byte)LisRepresentationCode.Int16),
+                BuildSpec("GR", samples: 1, reprc: (byte)LisRepresentationCode.Byte));
+
+            var record = BuildFdataRecord(LisRecordType.NormalData, new byte[] { 0x00, 0x64, 0x2A });
+            var parser = new LisFdataParser();
+            var selected = new[] { "GR" };
+            var metrics = new LisReadMetrics();
+
+            var frames = parser.ParseFrames(record, format, new System.Collections.Generic.HashSet<string>(selected), metrics);
+
+            Assert.Single(frames);
+            Assert.Single(frames[0].Channels);
+            Assert.Equal("GR", frames[0].Channels[0].Mnemonic);
+            Assert.Equal((byte)0x2A, frames[0].Channels[0].Samples[0]);
+            Assert.Equal(1, metrics.SamplesDecoded);
+            Assert.Equal(1, metrics.SamplesSkipped);
+        }
+
+        [Fact]
+        public void AccumulateCurves_SelectedMnemonics_CollectsOnlyRequestedCurve()
+        {
+            var format = BuildFormat(
+                BuildSpec("DEPTH", samples: 1, reprc: (byte)LisRepresentationCode.Int16),
+                BuildSpec("GR", samples: 1, reprc: (byte)LisRepresentationCode.Byte));
+
+            var record = BuildFdataRecord(LisRecordType.NormalData, new byte[] { 0x00, 0x64, 0x2A });
+            var parser = new LisFdataParser();
+            var selected = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase) { "GR" };
+            var curves = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<object>>(StringComparer.OrdinalIgnoreCase);
+            var metrics = new LisReadMetrics();
+
+            parser.AccumulateCurves(record, format, curves, selected, metrics);
+
+            Assert.Single(curves);
+            Assert.True(curves.ContainsKey("GR"));
+            Assert.Single(curves["GR"]);
+            Assert.Equal((byte)0x2A, curves["GR"][0]);
+            Assert.Equal(1, metrics.SamplesDecoded);
+            Assert.Equal(1, metrics.SamplesSkipped);
+        }
+
+        [Fact]
         public void ParseFrames_InvalidRecordType_ThrowsLisParseException()
         {
             var format = BuildFormat(BuildSpec("IDX", 1, (byte)LisRepresentationCode.Int16));

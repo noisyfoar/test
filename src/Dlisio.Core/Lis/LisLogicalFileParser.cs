@@ -8,6 +8,15 @@ namespace Dlisio.Core.Lis
     {
         public LisLogicalFileData Parse(Stream stream, LisLogicalFile logicalFile)
         {
+            return Parse(stream, logicalFile, options: null, metrics: null);
+        }
+
+        public LisLogicalFileData Parse(
+            Stream stream,
+            LisLogicalFile logicalFile,
+            LisReadOptions? options,
+            LisReadMetrics? metrics = null)
+        {
             if (stream == null)
             {
                 throw new ArgumentNullException(nameof(stream));
@@ -28,6 +37,9 @@ namespace Dlisio.Core.Lis
                 throw new ArgumentException("Stream must be seekable.", nameof(stream));
             }
 
+            options = options ?? new LisReadOptions();
+            HashSet<string>? selectedCurves = options.BuildSelectedCurveSet();
+
             var reader = new LisReader();
             var fixedParser = new LisFixedRecordParser();
             var dfsrParser = new LisDfsrParser();
@@ -37,14 +49,16 @@ namespace Dlisio.Core.Lis
             LisFileTrailerRecord? fileTrailer = null;
             LisDataFormatSpecificationRecord? activeDfsr = null;
             var dfsrs = new List<LisDataFormatSpecificationRecord>();
-            var frames = new List<LisFrameData>();
+            var frames = new List<LisFrameData>(options.IncludeFrames ? logicalFile.Records.Count : 0);
             var textRecords = new List<LisTextRecord>();
+            var curveAccumulator = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < logicalFile.Records.Count; i++)
             {
                 LisRecordInfo info = logicalFile.Records[i];
                 stream.Position = info.Offset;
                 LisLogicalRecord record = reader.ReadNextLogicalRecord(stream);
+                metrics?.AddLogicalRecordsRead(1);
                 LisRecordType type = (LisRecordType)record.Header.Type;
 
                 switch (type)
@@ -70,10 +84,21 @@ namespace Dlisio.Core.Lis
                                 "Encountered FData record before Data Format Specification Record.");
                         }
 
-                        IReadOnlyList<LisFrameData> parsedFrames = fdataParser.ParseFrames(record, activeDfsr);
-                        for (int frame = 0; frame < parsedFrames.Count; frame++)
+                        metrics?.AddFdataBytesRead(record.Data.Length);
+
+                        if (options.IncludeFrames)
                         {
-                            frames.Add(parsedFrames[frame]);
+                            IReadOnlyList<LisFrameData> parsedFrames =
+                                fdataParser.ParseFrames(record, activeDfsr, selectedCurves, metrics);
+                            for (int frame = 0; frame < parsedFrames.Count; frame++)
+                            {
+                                frames.Add(parsedFrames[frame]);
+                            }
+                        }
+
+                        if (options.IncludeCurves)
+                        {
+                            fdataParser.AccumulateCurves(record, activeDfsr, curveAccumulator, selectedCurves, metrics);
                         }
 
                         break;
@@ -87,7 +112,13 @@ namespace Dlisio.Core.Lis
                 }
             }
 
-            return new LisLogicalFileData(fileHeader, fileTrailer, textRecords, dfsrs, frames);
+            var curves = new Dictionary<string, IReadOnlyList<object>>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, List<object>> item in curveAccumulator)
+            {
+                curves[item.Key] = item.Value;
+            }
+
+            return new LisLogicalFileData(fileHeader, fileTrailer, textRecords, dfsrs, frames, curves);
         }
     }
 }

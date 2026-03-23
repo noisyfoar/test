@@ -69,6 +69,68 @@ namespace Dlisio.Tests.Lis
             Assert.Throws<ArgumentException>(() => parser.Parse(nonSeekable));
         }
 
+        [Fact]
+        public void Parse_WithSelectedCurves_ParsesOnlyRequestedFrameChannels()
+        {
+            byte[] fileHeader = BuildLogicalRecord(LisRecordType.FileHeader, BuildFileRecordData("FILE000100", "PREV000100"));
+            byte[] dfsr = BuildLogicalRecord(LisRecordType.DataFormatSpecification, BuildSimpleDfsrForTwoByteChannels("C1", "C2"));
+            byte[] data = BuildLogicalRecord(LisRecordType.NormalData, new byte[] { 0x0A, 0x14 });
+            byte[] fileTrailer = BuildLogicalRecord(LisRecordType.FileTrailer, BuildFileRecordData("FILE000100", "NEXT000100"));
+            using var stream = new MemoryStream(Concat(Concat(fileHeader, dfsr, data), fileTrailer));
+            var parser = new LisFileParser();
+            var options = new LisReadOptions(selectedCurveMnemonics: new[] { "C2" }, includeFrames: true, includeCurves: false);
+
+            var files = parser.Parse(stream, options);
+
+            Assert.Single(files);
+            Assert.Single(files[0].Frames);
+            Assert.Single(files[0].Frames[0].Channels);
+            Assert.Equal("C2", files[0].Frames[0].Channels[0].Mnemonic);
+            Assert.Equal((byte)0x14, files[0].Frames[0].Channels[0].Samples[0]);
+        }
+
+        [Fact]
+        public void ParseCurves_WithSelection_ReturnsOnlyRequestedCurveAndNoFrames()
+        {
+            byte[] fileHeader = BuildLogicalRecord(LisRecordType.FileHeader, BuildFileRecordData("FILE000101", "PREV000101"));
+            byte[] dfsr = BuildLogicalRecord(LisRecordType.DataFormatSpecification, BuildSimpleDfsrForTwoByteChannels("C1", "C2"));
+            byte[] data = BuildLogicalRecord(LisRecordType.NormalData, new byte[] { 0x0A, 0x14 });
+            byte[] fileTrailer = BuildLogicalRecord(LisRecordType.FileTrailer, BuildFileRecordData("FILE000101", "NEXT000101"));
+            using var stream = new MemoryStream(Concat(Concat(fileHeader, dfsr, data), fileTrailer));
+            var parser = new LisFileParser();
+
+            var files = parser.ParseCurves(stream, new[] { "C1" });
+
+            Assert.Single(files);
+            Assert.Empty(files[0].Frames);
+            Assert.Single(files[0].Curves);
+            Assert.True(files[0].Curves.ContainsKey("C1"));
+            Assert.Single(files[0].Curves["C1"]);
+            Assert.Equal((byte)0x0A, files[0].Curves["C1"][0]);
+        }
+
+        [Fact]
+        public void Parse_WithMetrics_FillsCounters()
+        {
+            byte[] fileHeader = BuildLogicalRecord(LisRecordType.FileHeader, BuildFileRecordData("FILE000102", "PREV000102"));
+            byte[] dfsr = BuildLogicalRecord(LisRecordType.DataFormatSpecification, BuildSimpleDfsrForByteChannel("C1"));
+            byte[] data = BuildLogicalRecord(LisRecordType.NormalData, new byte[] { 0x2A });
+            byte[] fileTrailer = BuildLogicalRecord(LisRecordType.FileTrailer, BuildFileRecordData("FILE000102", "NEXT000102"));
+            using var stream = new MemoryStream(Concat(Concat(fileHeader, dfsr, data), fileTrailer));
+            var parser = new LisFileParser();
+            var options = new LisReadOptions(includeFrames: true, includeCurves: false);
+            var metrics = new LisReadMetrics();
+
+            var files = parser.Parse(stream, options, metrics);
+
+            Assert.Single(files);
+            Assert.Equal(4, metrics.LogicalRecordsRead);
+            Assert.Equal(1, metrics.FdataBytesRead);
+            Assert.Equal(1, metrics.SamplesDecoded);
+            Assert.Equal(0, metrics.SamplesSkipped);
+            Assert.True(metrics.ParseElapsedMilliseconds >= 0);
+        }
+
         private static byte[] BuildLogicalRecord(LisRecordType type, byte[] data)
         {
             byte[] payload = new byte[2 + data.Length];
@@ -109,6 +171,31 @@ namespace Dlisio.Tests.Lis
             spec[34] = (byte)LisRepresentationCode.Byte;
 
             return Concat(entries, spec);
+        }
+
+        private static byte[] BuildSimpleDfsrForTwoByteChannels(string mnemonic1, string mnemonic2)
+        {
+            byte[] entries = Concat(
+                BuildEntry((byte)LisDfsrEntryType.SpecBlockSubtype, 1, (byte)LisRepresentationCode.Byte, new byte[] { 0x00 }),
+                BuildEntry((byte)LisDfsrEntryType.Terminator, 0, (byte)LisRepresentationCode.Byte, Array.Empty<byte>()));
+
+            byte[] spec1 = new byte[40];
+            Put(spec1, 0, 4, mnemonic1);
+            Put(spec1, 4, 6, "SRV001");
+            Put(spec1, 10, 8, "00000001");
+            Put(spec1, 18, 4, "UN");
+            spec1[33] = 1;
+            spec1[34] = (byte)LisRepresentationCode.Byte;
+
+            byte[] spec2 = new byte[40];
+            Put(spec2, 0, 4, mnemonic2);
+            Put(spec2, 4, 6, "SRV002");
+            Put(spec2, 10, 8, "00000002");
+            Put(spec2, 18, 4, "UN");
+            spec2[33] = 1;
+            spec2[34] = (byte)LisRepresentationCode.Byte;
+
+            return Concat(entries, spec1, spec2);
         }
 
         private static byte[] BuildEntry(byte type, byte size, byte reprc, byte[] value)

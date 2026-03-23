@@ -99,6 +99,40 @@ namespace Dlisio.Tests.Lis
             Assert.Throws<ArgumentException>(() => parser.Parse(nonSeekable, logicalFile));
         }
 
+        [Fact]
+        public void Parse_WithCurveOptions_CollectsCurvesWithoutFrames()
+        {
+            byte[] fileHeader = BuildLogicalRecord(
+                LisRecordType.FileHeader,
+                BuildFileRecordData("FILE000003", "PREVFILE03"));
+            byte[] dfsr = BuildLogicalRecord(
+                LisRecordType.DataFormatSpecification,
+                BuildSimpleDfsrForByteChannel("C1"));
+            byte[] fdata = BuildLogicalRecord(
+                LisRecordType.NormalData,
+                new byte[] { 0x33 });
+            byte[] fileTrailer = BuildLogicalRecord(
+                LisRecordType.FileTrailer,
+                BuildFileRecordData("FILE000003", "NEXTFILE03"));
+
+            byte[] bytes = Concat(Concat(fileHeader, dfsr, fdata), fileTrailer);
+            using var stream = new MemoryStream(bytes);
+
+            LisRecordIndex index = new LisIndexer().Index(stream);
+            var logicalFiles = new LisLogicalFilePartitioner().Partition(index);
+            var parser = new LisLogicalFileParser();
+            var options = new LisReadOptions(selectedCurveMnemonics: new[] { "C1" }, includeFrames: false, includeCurves: true);
+            var metrics = new LisReadMetrics();
+
+            LisLogicalFileData parsed = parser.Parse(stream, logicalFiles[0], options, metrics);
+
+            Assert.Empty(parsed.Frames);
+            Assert.Single(parsed.Curves);
+            Assert.Equal((byte)0x33, parsed.Curves["C1"][0]);
+            Assert.Equal(4, metrics.LogicalRecordsRead);
+            Assert.Equal(1, metrics.SamplesDecoded);
+        }
+
         private static byte[] BuildLogicalRecord(LisRecordType type, byte[] data)
         {
             byte[] payload = new byte[2 + data.Length];

@@ -9,6 +9,15 @@ namespace Dlisio.Core.Lis
             LisLogicalRecord record,
             LisDataFormatSpecificationRecord format)
         {
+            return ParseFrames(record, format, selectedMnemonics: null, metrics: null);
+        }
+
+        public IReadOnlyList<LisFrameData> ParseFrames(
+            LisLogicalRecord record,
+            LisDataFormatSpecificationRecord format,
+            ISet<string>? selectedMnemonics,
+            LisReadMetrics? metrics = null)
+        {
             if (record == null)
             {
                 throw new ArgumentNullException(nameof(record));
@@ -19,37 +28,9 @@ namespace Dlisio.Core.Lis
                 throw new ArgumentNullException(nameof(format));
             }
 
-            LisRecordType recordType = (LisRecordType)record.Header.Type;
-            if (recordType != LisRecordType.NormalData && recordType != LisRecordType.AlternateData)
-            {
-                throw new LisParseException("Invalid LIS record type for FData parser.");
-            }
-
-            if (format.SpecBlocks.Count == 0)
-            {
-                throw new LisParseException("Invalid DFSR: no spec blocks for frame parsing.");
-            }
-
-            int frameSize = 0;
-            for (int i = 0; i < format.SpecBlocks.Count; i++)
-            {
-                LisDfsrSpecBlock spec = format.SpecBlocks[i];
-                int valueSize = GetFixedValueSize(spec.RepresentationCode);
-                frameSize += valueSize * spec.Samples;
-            }
-
-            if (frameSize <= 0)
-            {
-                throw new LisParseException("Invalid frame size computed from DFSR.");
-            }
-
-            if (record.Data.Length % frameSize != 0)
-            {
-                throw new LisParseException(
-                    "FData payload length is not aligned to computed frame size.");
-            }
-
-            int frameCount = record.Data.Length / frameSize;
+            int[] valueSizes = BuildValueSizes(format);
+            int frameSize = ComputeFrameSize(format, valueSizes);
+            int frameCount = ComputeFrameCount(record, frameSize);
             var frames = new List<LisFrameData>(frameCount);
 
             int offset = 0;
@@ -60,14 +41,18 @@ namespace Dlisio.Core.Lis
                 {
                     LisDfsrSpecBlock spec = format.SpecBlocks[c];
                     int sampleCount = spec.Samples;
-                    int valueSize = GetFixedValueSize(spec.RepresentationCode);
-                    var samples = new object[sampleCount];
+                    int valueSize = valueSizes[c];
 
-                    for (int s = 0; s < sampleCount; s++)
+                    if (!ShouldDecode(spec.Mnemonic, selectedMnemonics))
                     {
-                        samples[s] = DecodeValue(record.Data, offset, spec.RepresentationCode, valueSize);
-                        offset += valueSize;
+                        offset += valueSize * sampleCount;
+                        metrics?.AddSamplesSkipped(sampleCount);
+                        continue;
                     }
+
+                    var samples = new object[sampleCount];
+                    DecodeSamples(record.Data, ref offset, spec.RepresentationCode, valueSize, samples);
+                    metrics?.AddSamplesDecoded(sampleCount);
 
                     channels.Add(new LisFrameChannelData(spec.Mnemonic, samples));
                 }
@@ -76,6 +61,120 @@ namespace Dlisio.Core.Lis
             }
 
             return frames;
+        }
+
+        public void AccumulateCurves(
+            LisLogicalRecord record,
+            LisDataFormatSpecificationRecord format,
+            IDictionary<string, List<object>> curves,
+            ISet<string>? selectedMnemonics = null,
+            LisReadMetrics? metrics = null)
+        {
+            if (record == null)
+            {
+                throw new ArgumentNullException(nameof(record));
+            }
+
+            if (format == null)
+            {
+                throw new ArgumentNullException(nameof(format));
+            }
+
+            if (curves == null)
+            {
+                throw new ArgumentNullException(nameof(curves));
+            }
+
+            int[] valueSizes = BuildValueSizes(format);
+            int frameSize = ComputeFrameSize(format, valueSizes);
+            int frameCount = ComputeFrameCount(record, frameSize);
+
+            int offset = 0;
+            for (int frame = 0; frame < frameCount; frame++)
+            {
+                for (int c = 0; c < format.SpecBlocks.Count; c++)
+                {
+                    LisDfsrSpecBlock spec = format.SpecBlocks[c];
+                    int sampleCount = spec.Samples;
+                    int valueSize = valueSizes[c];
+
+                    if (!ShouldDecode(spec.Mnemonic, selectedMnemonics))
+                    {
+                        offset += valueSize * sampleCount;
+                        metrics?.AddSamplesSkipped(sampleCount);
+                        continue;
+                    }
+
+                    List<object> samples;
+                    if (!curves.TryGetValue(spec.Mnemonic, out samples!))
+                    {
+                        samples = new List<object>();
+                        curves[spec.Mnemonic] = samples;
+                    }
+
+                    DecodeAndAppendSamples(record.Data, ref offset, spec.RepresentationCode, valueSize, sampleCount, samples);
+                    metrics?.AddSamplesDecoded(sampleCount);
+                }
+            }
+        }
+
+        private static int[] BuildValueSizes(LisDataFormatSpecificationRecord format)
+        {
+            if (format.SpecBlocks.Count == 0)
+            {
+                throw new LisParseException("Invalid DFSR: no spec blocks for frame parsing.");
+            }
+
+            var valueSizes = new int[format.SpecBlocks.Count];
+            for (int i = 0; i < format.SpecBlocks.Count; i++)
+            {
+                valueSizes[i] = GetFixedValueSize(format.SpecBlocks[i].RepresentationCode);
+            }
+
+            return valueSizes;
+        }
+
+        private static int ComputeFrameSize(LisDataFormatSpecificationRecord format, int[] valueSizes)
+        {
+            int frameSize = 0;
+            for (int i = 0; i < format.SpecBlocks.Count; i++)
+            {
+                frameSize += valueSizes[i] * format.SpecBlocks[i].Samples;
+            }
+
+            if (frameSize <= 0)
+            {
+                throw new LisParseException("Invalid frame size computed from DFSR.");
+            }
+
+            return frameSize;
+        }
+
+        private static int ComputeFrameCount(LisLogicalRecord record, int frameSize)
+        {
+            LisRecordType recordType = (LisRecordType)record.Header.Type;
+            if (recordType != LisRecordType.NormalData && recordType != LisRecordType.AlternateData)
+            {
+                throw new LisParseException("Invalid LIS record type for FData parser.");
+            }
+
+            if (record.Data.Length % frameSize != 0)
+            {
+                throw new LisParseException(
+                    "FData payload length is not aligned to computed frame size.");
+            }
+
+            return record.Data.Length / frameSize;
+        }
+
+        private static bool ShouldDecode(string mnemonic, ISet<string>? selectedMnemonics)
+        {
+            if (selectedMnemonics == null || selectedMnemonics.Count == 0)
+            {
+                return true;
+            }
+
+            return selectedMnemonics.Contains(mnemonic);
         }
 
         private static int GetFixedValueSize(byte representationCode)
@@ -106,31 +205,128 @@ namespace Dlisio.Core.Lis
             }
         }
 
-        private static object DecodeValue(byte[] data, int offset, byte representationCode, int valueSize)
+        private static void DecodeSamples(byte[] data, ref int offset, byte representationCode, int valueSize, object[] destination)
         {
             switch ((LisRepresentationCode)representationCode)
             {
                 case LisRepresentationCode.Int8:
-                    return unchecked((sbyte)data[offset]);
+                    for (int i = 0; i < destination.Length; i++)
+                    {
+                        destination[i] = unchecked((sbyte)data[offset]);
+                        offset++;
+                    }
+
+                    return;
 
                 case LisRepresentationCode.Int16:
-                    return (short)((data[offset] << 8) | data[offset + 1]);
+                    for (int i = 0; i < destination.Length; i++)
+                    {
+                        destination[i] = (short)((data[offset] << 8) | data[offset + 1]);
+                        offset += 2;
+                    }
+
+                    return;
 
                 case LisRepresentationCode.Int32:
-                    return
-                        (data[offset] << 24) |
-                        (data[offset + 1] << 16) |
-                        (data[offset + 2] << 8) |
-                        data[offset + 3];
+                    for (int i = 0; i < destination.Length; i++)
+                    {
+                        destination[i] =
+                            (data[offset] << 24) |
+                            (data[offset + 1] << 16) |
+                            (data[offset + 2] << 8) |
+                            data[offset + 3];
+                        offset += 4;
+                    }
+
+                    return;
 
                 case LisRepresentationCode.Byte:
-                    return data[offset];
+                    for (int i = 0; i < destination.Length; i++)
+                    {
+                        destination[i] = data[offset];
+                        offset++;
+                    }
+
+                    return;
 
                 case LisRepresentationCode.Float16:
                 case LisRepresentationCode.Float32Low:
                 case LisRepresentationCode.Float32:
                 case LisRepresentationCode.Float32Fixed:
-                    return DecodeFloatingValue(data, offset, (LisRepresentationCode)representationCode);
+                    for (int i = 0; i < destination.Length; i++)
+                    {
+                        destination[i] = DecodeFloatingValue(data, offset, (LisRepresentationCode)representationCode);
+                        offset += valueSize;
+                    }
+
+                    return;
+
+                default:
+                    throw new LisParseException("Unsupported LIS representation code in LisFdataParser.");
+            }
+        }
+
+        private static void DecodeAndAppendSamples(
+            byte[] data,
+            ref int offset,
+            byte representationCode,
+            int valueSize,
+            int sampleCount,
+            List<object> destination)
+        {
+            switch ((LisRepresentationCode)representationCode)
+            {
+                case LisRepresentationCode.Int8:
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        destination.Add(unchecked((sbyte)data[offset]));
+                        offset++;
+                    }
+
+                    return;
+
+                case LisRepresentationCode.Int16:
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        destination.Add((short)((data[offset] << 8) | data[offset + 1]));
+                        offset += 2;
+                    }
+
+                    return;
+
+                case LisRepresentationCode.Int32:
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        destination.Add(
+                            (data[offset] << 24) |
+                            (data[offset + 1] << 16) |
+                            (data[offset + 2] << 8) |
+                            data[offset + 3]);
+                        offset += 4;
+                    }
+
+                    return;
+
+                case LisRepresentationCode.Byte:
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        destination.Add(data[offset]);
+                        offset++;
+                    }
+
+                    return;
+
+                case LisRepresentationCode.Float16:
+                case LisRepresentationCode.Float32Low:
+                case LisRepresentationCode.Float32:
+                case LisRepresentationCode.Float32Fixed:
+                    for (int i = 0; i < sampleCount; i++)
+                    {
+                        destination.Add(DecodeFloatingValue(data, offset, (LisRepresentationCode)representationCode));
+                        offset += valueSize;
+                    }
+
+                    return;
 
                 default:
                     throw new LisParseException("Unsupported LIS representation code in LisFdataParser.");
