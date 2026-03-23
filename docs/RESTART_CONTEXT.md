@@ -23,6 +23,9 @@
    - `LisLogicalFileParser` и `LisFileParser` для high-level парсинга.
    - `LisReadOptions` для настройки (selected curves, curves-only режим).
    - `LisReadMetrics` для счётчиков производительности.
+3. Добавлен отдельный GUI-проект:
+   - `src/Dlisio.Gui` (WinForms, `.NET Framework 4.8`),
+   - открыть `.lis`, выбрать curves, получить текстовый отчёт без графиков.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 
@@ -69,5 +72,6 @@ dotnet test DlisioNet.sln
    - `src/Dlisio.Core/Lis/LisFileParser.cs`
    - `src/Dlisio.Core/Lis/LisReadOptions.cs`
    - `src/Dlisio.Core/Lis/LisReadMetrics.cs`
+   - `src/Dlisio.Gui/MainForm.cs`
    - `src/Dlisio.Core/Lis/LisHeaderParser.cs`
    - `tests/Dlisio.Tests/Lis/*`

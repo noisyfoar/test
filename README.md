@@ -84,6 +84,28 @@ IReadOnlyList<LisLogicalFileData> files =
 dotnet test DlisioNet.sln
 ```
 
+## GUI (отдельный проект, без графиков)
+
+Добавлен отдельный проект:
+- `src/Dlisio.Gui` (`.NET Framework 4.8`, WinForms)
+
+Что умеет GUI:
+- выбрать `.lis` файл,
+- задать список curve mnemonics (через запятую),
+- открыть файл в режиме:
+  - полный разбор (с `Frames`),
+  - curves-only (без `Frames`, ниже расход памяти),
+- показать текстовый отчёт:
+  - header/trailer, количество records/frames/curves,
+  - список curves и количество samples,
+  - метрики чтения (`LisReadMetrics`).
+
+Запуск (на Windows):
+
+```bash
+dotnet run --project src/Dlisio.Gui/Dlisio.Gui.csproj
+```
+
 ## План
 
 Детальный план дальнейшей реализации: `docs/implementation-plan.md`.

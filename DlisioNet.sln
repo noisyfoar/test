@@ -11,6 +11,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4BBFEA35
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dlisio.Tests", "tests\Dlisio.Tests\Dlisio.Tests.csproj", "{AEE1457F-03DF-4A70-8375-4BAE387DA0CF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Dlisio.Gui", "src\Dlisio.Gui\Dlisio.Gui.csproj", "{0BCC7473-926E-4D3C-BFCD-F400CB159A18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,9 +30,14 @@ Global
 		{AEE1457F-03DF-4A70-8375-4BAE387DA0CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AEE1457F-03DF-4A70-8375-4BAE387DA0CF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AEE1457F-03DF-4A70-8375-4BAE387DA0CF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0BCC7473-926E-4D3C-BFCD-F400CB159A18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0BCC7473-926E-4D3C-BFCD-F400CB159A18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0BCC7473-926E-4D3C-BFCD-F400CB159A18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0BCC7473-926E-4D3C-BFCD-F400CB159A18}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{5497F074-11B1-484C-9B3F-B85E9E341FE3} = {BDDF9BD6-CC7D-49B4-97E1-C7ED3E7E2688}
 		{AEE1457F-03DF-4A70-8375-4BAE387DA0CF} = {4BBFEA35-747A-47FA-868E-1C08CF33D517}
+		{0BCC7473-926E-4D3C-BFCD-F400CB159A18} = {BDDF9BD6-CC7D-49B4-97E1-C7ED3E7E2688}
 	EndGlobalSection
 EndGlobal
