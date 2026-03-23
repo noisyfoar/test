@@ -16,5 +16,5 @@ TestResults/
 # NuGet packages (if packages folder is used)
 packages/
 
-# Local SDK bootstrap in cloud agents
+# Local SDK bootstrap
 .dotnet/

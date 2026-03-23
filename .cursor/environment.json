@@ -1,4 +1,0 @@
-{
-  "name": "dlisio-net48",
-  "install": "bash .cursor/install-dotnet.sh"
-}

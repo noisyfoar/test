@@ -2,21 +2,20 @@
 
 Current project scope: **LIS79 only**. Do not add or reintroduce DLIS-specific implementation unless explicitly requested.
 
-## Cursor Cloud specific instructions
+## Local development baseline (Windows / .NET Framework 4.8)
 
-- This repository configures Cloud Agent environment via `.cursor/environment.json`.
-- On agent startup, `.cursor/install-dotnet.sh` ensures .NET SDK is installed and available on `PATH`.
+- Primary target: `.NET Framework 4.8`.
+- Linux/Cloud runtime compatibility is not a project goal.
 
 ### Quick environment checks
 
-Run these commands first in Cloud sessions:
+Run these commands first in local sessions:
 
 ```bash
 dotnet --info
-dotnet --list-sdks
 ```
 
-Expected: SDK list includes a `8.x` entry.
+Expected: toolchain is available and can run .NET Framework builds/tests.
 
 ### Build and test baseline
 
