@@ -113,7 +113,7 @@ namespace Dlisio.Tests.Parsing
         public void Assemble_EarlyLastSegment_ThrowsDlisParseException()
         {
             LogicalRecordSegment first = ParseSegment(0x00, 0x33, 0x10); // marked as last
-            LogicalRecordSegment second = ParseSegment(0x40, 0x33, 0x20);
+            LogicalRecordSegment second = ParseSegment(0x50, 0x33, 0x20);
 
             DlisParseException ex = Assert.Throws<DlisParseException>(
                 () => LogicalRecordAssembler.Assemble(new[] { first, second }));
@@ -135,7 +135,7 @@ namespace Dlisio.Tests.Parsing
                 0xAE, 0xAF, 0xB0, 0xB1
             });
 
-            LogicalRecordSegment second = ParseSegment(0x40, 0x33, 0x20);
+            LogicalRecordSegment second = ParseSegment(0x50, 0x33, 0x20);
 
             LogicalRecord record = LogicalRecordAssembler.Assemble(new[] { first, second });
 

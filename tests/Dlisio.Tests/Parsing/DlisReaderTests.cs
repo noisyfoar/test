@@ -76,7 +76,7 @@ namespace Dlisio.Tests.Parsing
             Assert.Equal((byte)0x44, record1.LogicalRecordType);
             Assert.Equal(2, record1.Segments.Count);
             Assert.Equal((byte)0x55, record2.LogicalRecordType);
-            Assert.Equal(1, record2.Segments.Count);
+            Assert.Single(record2.Segments);
             Assert.Equal(12, record2.Body.Length);
             Assert.Equal((byte)0x30, record2.Body[0]);
         }
