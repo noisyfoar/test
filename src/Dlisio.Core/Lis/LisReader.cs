@@ -6,6 +6,43 @@ namespace Dlisio.Core.Lis
 {
     public sealed class LisReader
     {
+        public bool TryReadNextLogicalRecord(Stream stream, out LisLogicalRecord? record)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            if (!stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be seekable for TryRead operations.", nameof(stream));
+            }
+
+            long startPosition = stream.Position;
+            if (startPosition >= stream.Length)
+            {
+                record = null;
+                return false;
+            }
+
+            try
+            {
+                record = ReadNextLogicalRecord(stream);
+                return true;
+            }
+            catch (LisParseException) when (RemainingBytesArePadding(stream, startPosition))
+            {
+                stream.Seek(0, SeekOrigin.End);
+                record = null;
+                return false;
+            }
+        }
+
         public LisLogicalRecord ReadNextLogicalRecord(Stream stream)
         {
             if (stream == null)
@@ -138,6 +175,46 @@ namespace Dlisio.Core.Lis
             }
 
             ReadExactly(stream, count, componentName);
+        }
+
+        private static bool RemainingBytesArePadding(Stream stream, long fromPosition)
+        {
+            if (!stream.CanSeek || !stream.CanRead)
+            {
+                return false;
+            }
+
+            long originalPosition = stream.Position;
+            try
+            {
+                stream.Position = fromPosition;
+                long remaining = stream.Length - fromPosition;
+                if (remaining <= 0)
+                {
+                    return true;
+                }
+
+                int first = stream.ReadByte();
+                if (first < 0 || (first != 0x00 && first != 0x20))
+                {
+                    return false;
+                }
+
+                for (long i = 1; i < remaining; i++)
+                {
+                    int current = stream.ReadByte();
+                    if (current != first)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            finally
+            {
+                stream.Position = originalPosition;
+            }
         }
     }
 }
