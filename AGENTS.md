@@ -1,6 +1,6 @@
 # AGENTS
 
-Current project scope: **LIS79 only**. Do not add or reintroduce DLIS-specific implementation unless explicitly requested.
+Current project scope: **LIS79 only**. Do not add or reintroduce non-LIS-specific implementation unless explicitly requested.
 
 ## Local development baseline (Windows / .NET Framework 4.8)
 
@@ -20,18 +20,18 @@ Expected: toolchain is available and can run .NET Framework builds/tests.
 ### Build and test baseline
 
 ```bash
-dotnet test DlisioNet.sln
+dotnet test LisNet.sln
 ```
 
 This validates:
-- `Dlisio.Core` builds for `net48` (library target)
-- unit tests in `tests/Dlisio.Tests` pass
+- `Lis.Core` builds for `net48` (library target)
+- unit tests in `tests/Lis.Tests` pass
 
 ## Implementation workflow rule
 
 After each completed implementation step, follow this checklist before moving on:
 
-1. Run relevant tests (at minimum `dotnet test DlisioNet.sln`).
+1. Run relevant tests (at minimum `dotnet test LisNet.sln`).
 2. Review test output and build logs for warnings/regressions.
 3. Do a short reflection:
    - what changed,

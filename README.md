@@ -10,9 +10,9 @@
 
 ## Текущее состояние
 
-- DLIS-специфичный транспортный слой удалён из `src/Dlisio.Core/Parsing`.
-- Core собирается как библиотека `Lis.Core.dll` (project: `src/Dlisio.Core`).
-- Добавлен LIS-first слой в `src/Dlisio.Core/Lis`:
+- Старый транспортный слой удалён из `src/Lis.Core/Parsing`.
+- Core собирается как библиотека `Lis.Core.dll` (project: `src/Lis.Core`).
+- Добавлен LIS-first слой в `src/Lis.Core/Lis`:
   - PRH/LRH парсеры,
   - типы LIS79,
   - reader для логической записи с объединением нескольких physical records,
@@ -26,7 +26,7 @@
     - `LisReadOptions` (выбор кривых, режим curves-only),
     - `LisReadMetrics` (счётчики read/decode),
     - `LisImporter` / `LisExporter` (импорт/экспорт LIS logical records).
-- Добавлены LIS unit-тесты в `tests/Dlisio.Tests/Lis`.
+- Добавлены LIS unit-тесты в `tests/Lis.Tests/Lis`.
 
 ## Как загружать LIS и что получать
 
@@ -103,13 +103,13 @@ exporter.Export("output.lis", document, options);
 ## Быстрая проверка
 
 ```bash
-dotnet test DlisioNet.sln
+dotnet test LisNet.sln
 ```
 
 ## GUI (отдельный проект, без графиков)
 
 Добавлен отдельный проект:
-- `src/Dlisio.Gui` (`.NET Framework 4.8`, WinForms)
+- `src/Lis.Gui` (`.NET Framework 4.8`, WinForms)
 
 Что умеет GUI:
 - выбрать `.lis` файл,
@@ -133,7 +133,7 @@ dotnet test DlisioNet.sln
 Запуск (на Windows):
 
 ```bash
-dotnet run --project src/Dlisio.Gui/Dlisio.Gui.csproj
+dotnet run --project src/Lis.Gui/Lis.Gui.csproj
 ```
 
 ## План
