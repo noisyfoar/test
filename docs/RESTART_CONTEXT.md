@@ -19,14 +19,16 @@
    - `LisIndexer` / `LisRecordIndex` / `LisRecordInfo` для индексации записей,
    - `LisFixedRecordParser` для fixed/text records,
    - `LisDfsrParser` для базового разбора DFSR,
-   - `LisFdataParser` для базового разбора FData,
+   - `LisFdataParser` для базового разбора FData + выборочной декодировки каналов,
    - `LisLogicalFileParser` и `LisFileParser` для high-level парсинга.
+   - `LisReadOptions` для настройки (selected curves, curves-only режим).
+   - `LisReadMetrics` для счётчиков производительности.
 3. Тесты полностью переведены на LIS:
    - `tests/Dlisio.Tests/Lis/*`.
 
 ## Текущее состояние качества
 
-- Unit-тесты: **91 passed, 0 failed**.
+- Unit-тесты: **99 passed, 0 failed**.
 - Проверка:
 
 ```bash
@@ -37,12 +39,11 @@ dotnet test DlisioNet.sln
 
 Следующий шаг (LIS-only):
 
-1. Поддержка последовательности нескольких logical files в одном физическом файле.
-2. Расширение DFSR-парсера и валидации entry/spec блоков.
-3. Расширение FData/curves:
-   - поддержка всех reprc,
-   - fast-channel сценарии,
-   - более полный API доступа к кривым.
+1. Расширение DFSR-парсера и валидации entry/spec блоков.
+2. Дальнейшее расширение FData/curves:
+   - поддержка всех reprc edge-case сценариев,
+   - fast-channel сценарии.
+3. Профилирование на больших LIS и точечная оптимизация горячих участков.
 
 ## Быстрый старт после рестарта
 
@@ -66,5 +67,7 @@ dotnet test DlisioNet.sln
    - `src/Dlisio.Core/Lis/LisFdataParser.cs`
    - `src/Dlisio.Core/Lis/LisLogicalFileParser.cs`
    - `src/Dlisio.Core/Lis/LisFileParser.cs`
+   - `src/Dlisio.Core/Lis/LisReadOptions.cs`
+   - `src/Dlisio.Core/Lis/LisReadMetrics.cs`
    - `src/Dlisio.Core/Lis/LisHeaderParser.cs`
    - `tests/Dlisio.Tests/Lis/*`

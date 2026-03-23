@@ -15,14 +15,68 @@
   - PRH/LRH парсеры,
   - типы LIS79,
   - reader для логической записи с объединением нескольких physical records,
-  - индексатор logical records (тип, смещение, длина, class explicit/implicit).
+  - индексатор logical records (тип, смещение, длина, class explicit/implicit) без materialize payload,
   - парсер fixed/text records (File/Reel/Tape Header/Trailer, text records),
   - начальный DFSR-парсер (entry blocks и spec blocks subtype 0/1).
-  - начальный FData-парсер кадров (Normal/Alternate Data).
+  - начальный FData-парсер кадров (Normal/Alternate Data) с fast-path декодом fixed-size reprc.
   - high-level API:
     - `LisLogicalFileParser`,
-    - `LisFileParser`.
+    - `LisFileParser`,
+    - `LisReadOptions` (выбор кривых, режим curves-only),
+    - `LisReadMetrics` (счётчики read/decode).
 - Добавлены LIS unit-тесты в `tests/Dlisio.Tests/Lis`.
+
+## Как загружать LIS и что получать
+
+### 1) Полный разбор logical files (metadata + frames)
+
+```csharp
+using var stream = File.OpenRead("sample.lis");
+var parser = new LisFileParser();
+IReadOnlyList<LisLogicalFileData> files = parser.Parse(stream);
+```
+
+Результат `LisLogicalFileData` содержит:
+- `FileHeader`, `FileTrailer`,
+- `TextRecords`,
+- `DataFormatSpecifications`,
+- `Frames`.
+
+### 2) Выбрать только нужные кривые из FData
+
+```csharp
+using var stream = File.OpenRead("sample.lis");
+var parser = new LisFileParser();
+var options = new LisReadOptions(
+    selectedCurveMnemonics: new[] { "GR", "RHOB", "NPHI" },
+    includeFrames: true,
+    includeCurves: false);
+
+IReadOnlyList<LisLogicalFileData> files = parser.Parse(stream, options);
+```
+
+В `Frames` останутся только выбранные каналы (`GR`, `RHOB`, `NPHI`).
+
+### 3) Режим "только кривые" (минимум памяти)
+
+```csharp
+using var stream = File.OpenRead("sample.lis");
+var parser = new LisFileParser();
+var metrics = new LisReadMetrics();
+
+IReadOnlyList<LisLogicalFileData> files =
+    parser.ParseCurves(stream, selectedCurveMnemonics: new[] { "GR" }, metrics: metrics);
+```
+
+В этом режиме:
+- `Frames` не заполняются,
+- данные идут в `Curves` (`mnemonic -> samples`),
+- доступны метрики в `metrics`:
+  - `LogicalRecordsRead`,
+  - `FdataBytesRead`,
+  - `SamplesDecoded`,
+  - `SamplesSkipped`,
+  - `ParseElapsedMilliseconds`.
 
 ## Быстрая проверка
 
