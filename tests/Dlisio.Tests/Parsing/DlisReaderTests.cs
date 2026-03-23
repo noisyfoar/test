@@ -8,6 +8,49 @@ namespace Dlisio.Tests.Parsing
     public sealed class DlisReaderTests
     {
         [Fact]
+        public void ReadNextLogicalRecord_ReadsUntilLastSegment()
+        {
+            byte[] first = BuildSegment(0x20, 0x44, 0x10);
+            byte[] second = BuildSegment(0x40, 0x44, 0x20);
+            byte[] streamData = Concat(first, second);
+
+            using var stream = new MemoryStream(streamData);
+            var reader = new DlisReader();
+
+            LogicalRecord record = reader.ReadNextLogicalRecord(stream);
+
+            Assert.Equal((byte)0x44, record.LogicalRecordType);
+            Assert.Equal(2, record.Segments.Count);
+            Assert.Equal(24, record.Body.Length);
+            Assert.Equal((byte)0x10, record.Body[0]);
+            Assert.Equal((byte)0x2B, record.Body[23]);
+        }
+
+        [Fact]
+        public void ReadNextLogicalRecord_StreamStartsFromNonFirstSegment_ThrowsDlisParseException()
+        {
+            using var stream = new MemoryStream(BuildSegment(0x40, 0x44, 0x20));
+            var reader = new DlisReader();
+
+            DlisParseException ex = Assert.Throws<DlisParseException>(
+                () => reader.ReadNextLogicalRecord(stream));
+
+            Assert.Contains("not marked as first", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ReadNextLogicalRecord_TruncatedChain_ThrowsDlisParseException()
+        {
+            using var stream = new MemoryStream(BuildSegment(0x20, 0x44, 0x10));
+            var reader = new DlisReader();
+
+            DlisParseException ex = Assert.Throws<DlisParseException>(
+                () => reader.ReadNextLogicalRecord(stream));
+
+            Assert.Contains("Unexpected end of stream", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
         public void ReadNextSegment_ReadsFullSegment()
         {
             var segment = new byte[]
@@ -85,6 +128,30 @@ namespace Dlisio.Tests.Parsing
                 () => reader.ReadFirstSegmentHeader(stream));
 
             Assert.Contains("Unexpected end of stream", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static byte[] BuildSegment(byte flags, byte recordType, byte bodyStart)
+        {
+            var segment = new byte[16];
+            segment[0] = 0x00;
+            segment[1] = 0x10;
+            segment[2] = flags;
+            segment[3] = recordType;
+
+            for (int i = 0; i < 12; i++)
+            {
+                segment[4 + i] = (byte)(bodyStart + i);
+            }
+
+            return segment;
+        }
+
+        private static byte[] Concat(byte[] first, byte[] second)
+        {
+            var result = new byte[first.Length + second.Length];
+            Buffer.BlockCopy(first, 0, result, 0, first.Length);
+            Buffer.BlockCopy(second, 0, result, first.Length, second.Length);
+            return result;
         }
     }
 }
