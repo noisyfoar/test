@@ -161,3 +161,28 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python compare_with_dlisio.py /path/to/file.lis --repo-root /workspace
 ```
+
+## Использование Python `dlisio` из C# (.NET Framework 4.8)
+
+Если на стороне C# нужен именно разбор через Python-библиотеку `dlisio`, в `Lis.Core` добавлен bridge-клиент:
+
+```csharp
+using Lis.Core.Lis;
+
+var client = new LisDlisioClient();
+var options = new LisDlisioOptions
+{
+    // На Windows можно указать "py" или полный путь к python.exe
+    PythonExecutablePath = "python",
+    TimeoutMilliseconds = 120000
+};
+
+LisDlisioSummary summary = client.ReadSummary(@"C:\data\sample.lis", options);
+```
+
+Что нужно на машине пользователя:
+- установлен `.NET Framework 4.8` (целевая платформа библиотеки),
+- установлен `Python`,
+- установлен пакет `dlisio` (`pip install dlisio`).
+
+`LisDlisioClient` запускает отдельный Python-процесс, читает LIS через `dlisio` и возвращает структурный summary (`LogicalFiles`, `Dfsrs`, `Channels`) в типизированные C# модели.
