@@ -1,0 +1,26 @@
+# Build artifacts
+bin/
+obj/
+out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet packages (if packages folder is used)
+packages/
+
+# Local SDK bootstrap
+.dotnet/
+
+# Python local environments
+.venv/
+
+# External cloned repositories and ad-hoc local datasets
+external/
