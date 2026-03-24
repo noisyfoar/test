@@ -22,6 +22,7 @@ namespace Lis.Gui
         private readonly Button _browseButton;
         private readonly Button _loadButton;
         private readonly CheckBox _curvesOnlyCheckBox;
+        private readonly CheckBox _allowMalformedCheckBox;
         private readonly TextBox _selectedCurvesTextBox;
         private readonly Label _statusLabel;
         private readonly TextBox _reportTextBox;
@@ -35,6 +36,7 @@ namespace Lis.Gui
             _browseButton = CreateBrowseButton();
             _loadButton = CreateLoadButton();
             _curvesOnlyCheckBox = CreateCurvesOnlyCheckBox();
+            _allowMalformedCheckBox = CreateAllowMalformedCheckBox();
             _selectedCurvesTextBox = CreateSelectedCurvesTextBox();
             _statusLabel = CreateStatusLabel();
             _reportTextBox = CreateReportTextBox();
@@ -72,10 +74,27 @@ namespace Lis.Gui
                 ResetOutputViews();
 
                 using var stream = File.OpenRead(filePath);
-                var metrics = new LisReadMetrics();
+                LisReadMetrics metrics = new LisReadMetrics();
                 IReadOnlyCollection<string>? selectedCurves = ParseSelectedCurves(_selectedCurvesTextBox.Text);
 
-                IReadOnlyList<LisLogicalFileData> parsed = ParseFiles(stream, selectedCurves, metrics);
+                IReadOnlyList<LisLogicalFileData> parsed;
+                try
+                {
+                    parsed = ParseFiles(stream, selectedCurves, metrics, _allowMalformedCheckBox.Checked);
+                }
+                catch (LisParseException ex) when (!_allowMalformedCheckBox.Checked)
+                {
+                    // Автоматический fallback для «грязных» LIS-файлов.
+                    stream.Position = 0;
+                    metrics = new LisReadMetrics();
+                    parsed = ParseFiles(stream, selectedCurves, metrics, allowMalformedData: true);
+
+                    _statusLabel.Text = ReadErrorStatus + " Автоматически включён tolerant-режим.";
+                    _reportTextBox.Text = "Исходная ошибка strict-режима:\r\n" + ex + "\r\n\r\n"
+                        + BuildReport(parsed, metrics, _curvesOnlyCheckBox.Checked);
+                    PopulateRawRecords(stream);
+                    return;
+                }
 
                 _reportTextBox.Text = BuildReport(parsed, metrics, _curvesOnlyCheckBox.Checked);
                 PopulateRawRecords(stream);
@@ -129,6 +148,15 @@ namespace Lis.Gui
             {
                 AutoSize = true,
                 Text = "Только кривые (без frames)"
+            };
+        }
+
+        private static CheckBox CreateAllowMalformedCheckBox()
+        {
+            return new CheckBox
+            {
+                AutoSize = true,
+                Text = "Разрешить повреждённые данные (tolerant-режим)"
             };
         }
 
@@ -250,6 +278,7 @@ namespace Lis.Gui
             };
 
             panel.Controls.Add(_curvesOnlyCheckBox);
+            panel.Controls.Add(_allowMalformedCheckBox);
             panel.Controls.Add(new Label
             {
                 AutoSize = true,
@@ -312,35 +341,26 @@ namespace Lis.Gui
         private IReadOnlyList<LisLogicalFileData> ParseFiles(
             Stream stream,
             IReadOnlyCollection<string>? selectedCurves,
-            LisReadMetrics metrics)
+            LisReadMetrics metrics,
+            bool allowMalformedData)
         {
             var parser = new LisFileParser();
-            try
+            if (_curvesOnlyCheckBox.Checked)
             {
-                if (_curvesOnlyCheckBox.Checked)
-                {
-                    return parser.ParseCurves(stream, selectedCurves, metrics);
-                }
-
-                var strictOptions = new LisReadOptions(
+                var options = new LisReadOptions(
                     selectedCurveMnemonics: selectedCurves,
-                    includeFrames: true,
-                    includeCurves: false,
-                    allowMalformedData: false);
+                    includeFrames: false,
+                    includeCurves: true,
+                    allowMalformedData: allowMalformedData);
+                return parser.Parse(stream, options, metrics);
+            }
 
-                return parser.Parse(stream, strictOptions, metrics);
-            }
-            catch (LisParseException)
-            {
-                // Автоматический fallback для «грязных» LIS-файлов.
-                stream.Position = 0;
-                var tolerantOptions = new LisReadOptions(
-                    selectedCurveMnemonics: selectedCurves,
-                    includeFrames: !_curvesOnlyCheckBox.Checked,
-                    includeCurves: _curvesOnlyCheckBox.Checked,
-                    allowMalformedData: true);
-                return parser.Parse(stream, tolerantOptions, metrics);
-            }
+            var strictOptions = new LisReadOptions(
+                selectedCurveMnemonics: selectedCurves,
+                includeFrames: true,
+                includeCurves: false,
+                allowMalformedData: allowMalformedData);
+            return parser.Parse(stream, strictOptions, metrics);
         }
 
         private static IReadOnlyCollection<string>? ParseSelectedCurves(string input)
