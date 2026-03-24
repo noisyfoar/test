@@ -119,6 +119,39 @@ namespace Lis.Tests.Lis
         }
 
         [Fact]
+        public void Index_AllowMalformedData_RecoveryCanIncludeImplicitRecordIfByteShiftFindsValidLayout()
+        {
+            byte[] fileHeader = BuildPhysicalRecord(
+                0x0000,
+                BuildLrhPayload((byte)LisRecordType.FileHeader, 0x00, 0x10));
+            // Invalid LRH type (0xAA) but physically valid record layout.
+            byte[] brokenLrh = BuildPhysicalRecord(
+                0x0000,
+                BuildLrhPayload(0xAA, 0x00, 0x99, 0x98));
+            // Implicit record: payload without LRH.
+            byte[] implicitData = BuildPhysicalRecord(
+                0x0000,
+                new byte[] { 0x41, 0x42, 0x43, 0x44 });
+            byte[] fileTrailer = BuildPhysicalRecord(
+                0x0000,
+                BuildLrhPayload((byte)LisRecordType.FileTrailer, 0x00, 0x20));
+
+            using var stream = new MemoryStream(Concat(fileHeader, brokenLrh, implicitData, fileTrailer));
+            var indexer = new LisIndexer();
+            var metrics = new LisReadMetrics();
+
+            LisRecordIndex index = indexer.Index(stream, allowMalformedData: true, metrics);
+
+            Assert.Equal(3, index.Count);
+            Assert.Equal(LisRecordType.FileHeader, index.Records[0].Type);
+            Assert.NotEqual(LisRecordType.FileHeader, index.Records[1].Type);
+            Assert.NotEqual(LisRecordType.FileTrailer, index.Records[1].Type);
+            Assert.True(index.Records[1].DataLength > 0);
+            Assert.Equal(LisRecordType.FileTrailer, index.Records[2].Type);
+            Assert.True(metrics.MalformedRecordsSkipped >= 1);
+        }
+
+        [Fact]
         public void Index_NullStream_ThrowsArgumentNullException()
         {
             var indexer = new LisIndexer();

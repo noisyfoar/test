@@ -44,6 +44,12 @@ namespace Lis.Core.Lis
                     "Invalid LIS physical record length: shorter than the minimum required by its attributes.");
             }
 
+            if (header.Length > LisPhysicalRecordHeader.RecommendedMaximumLength)
+            {
+                throw new LisParseException(
+                    "Invalid LIS physical record length: exceeds recommended maximum physical record size.");
+            }
+
             return header;
         }
 

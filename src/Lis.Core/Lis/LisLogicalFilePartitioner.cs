@@ -11,6 +11,17 @@ namespace Lis.Core.Lis
         /// </summary>
         public IReadOnlyList<LisLogicalFile> Partition(LisRecordIndex index)
         {
+            return Partition(index, includeRecordsBeforeFirstFileHeader: false);
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «Partition» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        public IReadOnlyList<LisLogicalFile> Partition(
+            LisRecordIndex index,
+            bool includeRecordsBeforeFirstFileHeader)
+        {
             if (index == null)
             {
                 throw new ArgumentNullException(nameof(index));
@@ -44,7 +55,14 @@ namespace Lis.Core.Lis
 
                 if (currentRecords.Count == 0)
                 {
-                    // Игнорируем записи до первого заголовка файла.
+                    if (!includeRecordsBeforeFirstFileHeader)
+                    {
+                        // Игнорируем записи до первого заголовка файла.
+                        continue;
+                    }
+
+                    // Для повреждённых файлов сохраняем pre-header область как неполный logical file.
+                    currentRecords.Add(current);
                     continue;
                 }
 

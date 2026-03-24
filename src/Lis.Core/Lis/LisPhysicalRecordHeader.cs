@@ -3,6 +3,7 @@ namespace Lis.Core.Lis
     public sealed class LisPhysicalRecordHeader
     {
         public const int HeaderLength = 4;
+        public const int RecommendedMaximumLength = 16384;
 
         // Биты атрибутов PRH по спецификации LIS79.
         public const ushort AttributeChecksum = 0x3000;

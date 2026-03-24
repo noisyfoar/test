@@ -15,12 +15,14 @@ namespace Lis.Core.Lis
             IReadOnlyCollection<string>? selectedCurveMnemonics = null,
             bool includeFrames = true,
             bool includeCurves = false,
-            bool allowMalformedData = false)
+            bool allowMalformedData = false,
+            bool includeRecordsBeforeFirstFileHeader = false)
         {
             SelectedCurveMnemonics = selectedCurveMnemonics;
             IncludeFrames = includeFrames;
             IncludeCurves = includeCurves;
             AllowMalformedData = allowMalformedData;
+            IncludeRecordsBeforeFirstFileHeader = includeRecordsBeforeFirstFileHeader;
         }
 
         /// <summary>
@@ -43,6 +45,13 @@ namespace Lis.Core.Lis
         /// при повреждённых данных, пропуская проблемные участки вместо остановки.
         /// </summary>
         public bool AllowMalformedData { get; }
+
+        /// <summary>
+        /// Если значение включено, записи до первого FileHeader не отбрасываются
+        /// и формируют неполный логический файл в начале потока.
+        /// Это полезно для данных, где начальные delimiters/headers повреждены.
+        /// </summary>
+        public bool IncludeRecordsBeforeFirstFileHeader { get; }
 
         /// <summary>
         /// Подробно выполняет операцию «BuildSelectedCurveSet» для обработки данных формата LIS.

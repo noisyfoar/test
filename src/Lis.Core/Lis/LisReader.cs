@@ -7,7 +7,7 @@ namespace Lis.Core.Lis
     public sealed class LisReader
     {
         private readonly byte[] _physicalHeaderBuffer = new byte[LisPhysicalRecordHeader.HeaderLength];
-        private readonly byte[] _logicalHeaderBuffer = new byte[LisLogicalRecordHeader.HeaderLength];
+        private readonly byte[] _logicalHeaderProbeBuffer = new byte[LisLogicalRecordHeader.HeaderLength + 4];
 
         /// <summary>
         /// Подробно выполняет операцию «TrySkipNextLogicalRecord» для обработки данных формата LIS.
@@ -92,6 +92,100 @@ namespace Lis.Core.Lis
         }
 
         /// <summary>
+        /// Подробно выполняет операцию «TrySkipNextImplicitDataRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        public bool TrySkipNextImplicitDataRecord(Stream stream, out LisRecordInfo? info)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            if (!stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be seekable for TryRead operations.", nameof(stream));
+            }
+
+            long startPosition = stream.Position;
+            if (startPosition >= stream.Length)
+            {
+                info = null;
+                return false;
+            }
+
+            if (!LooksLikeImplicitRecord(stream))
+            {
+                info = null;
+                return false;
+            }
+
+            try
+            {
+                info = SkipNextImplicitDataRecord(stream);
+                return true;
+            }
+            catch (LisParseException) when (RemainingBytesArePadding(stream, startPosition))
+            {
+                stream.Seek(0, SeekOrigin.End);
+                info = null;
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «TryReadNextImplicitDataRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        public bool TryReadNextImplicitDataRecord(Stream stream, out LisLogicalRecord? record)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            if (!stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be seekable for TryRead operations.", nameof(stream));
+            }
+
+            long startPosition = stream.Position;
+            if (startPosition >= stream.Length)
+            {
+                record = null;
+                return false;
+            }
+
+            if (!LooksLikeImplicitRecord(stream))
+            {
+                record = null;
+                return false;
+            }
+
+            try
+            {
+                record = ReadNextImplicitDataRecord(stream);
+                return true;
+            }
+            catch (LisParseException) when (RemainingBytesArePadding(stream, startPosition))
+            {
+                stream.Seek(0, SeekOrigin.End);
+                record = null;
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Подробно выполняет операцию «ReadNextLogicalRecord» для обработки данных формата LIS.
         /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
         /// </summary>
@@ -137,17 +231,30 @@ namespace Lis.Core.Lis
                             "Invalid LIS physical record: first segment does not contain a full LRH.");
                     }
 
-                    ReadExactly(
-                        stream,
-                        _logicalHeaderBuffer,
-                        0,
-                        LisLogicalRecordHeader.HeaderLength,
-                        "LIS logical record header");
-                    logicalRecordHeader = LisHeaderParser.ParseLogicalRecordHeader(_logicalHeaderBuffer, 0);
-                    payloadLength -= LisLogicalRecordHeader.HeaderLength;
-                }
+                    int probeCount = Math.Min(payloadLength, _logicalHeaderProbeBuffer.Length);
+                    ReadExactly(stream, _logicalHeaderProbeBuffer, 0, probeCount, "LIS logical record header probe");
 
-                if (payloadLength > 0)
+                    int lrhOffset;
+                    if (!TryParseLogicalRecordHeaderFromProbe(_logicalHeaderProbeBuffer, probeCount, payloadLength, out LisLogicalRecordHeader parsedHeader, out lrhOffset))
+                    {
+                        throw new LisParseException("Invalid LIS logical record type.");
+                    }
+
+                    logicalRecordHeader = parsedHeader;
+                    int consumedInProbe = lrhOffset + LisLogicalRecordHeader.HeaderLength;
+                    int dataBytesInProbe = probeCount - consumedInProbe;
+                    if (dataBytesInProbe > 0)
+                    {
+                        payloadBuilder.Append(_logicalHeaderProbeBuffer, consumedInProbe, dataBytesInProbe);
+                    }
+
+                    int remainingPayload = payloadLength - probeCount;
+                    if (remainingPayload > 0)
+                    {
+                        payloadBuilder.AppendFromStream(stream, remainingPayload, "LIS physical record payload");
+                    }
+                }
+                else if (payloadLength > 0)
                 {
                     payloadBuilder.AppendFromStream(stream, payloadLength, "LIS physical record payload");
                 }
@@ -173,6 +280,69 @@ namespace Lis.Core.Lis
             }
 
             return new LisLogicalRecord(logicalRecordHeader, payloadBuilder.ToArray(), recordCount);
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «ReadNextImplicitDataRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        public LisLogicalRecord ReadNextImplicitDataRecord(Stream stream)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            LisPhysicalRecordHeader firstPrh = ReadNextPhysicalRecordHeader(stream);
+            if (firstPrh.HasPredecessor)
+            {
+                throw new LisParseException(
+                    "Invalid LIS layout: implicit data record starts with continuation segment.");
+            }
+
+            var payloadBuilder = new PayloadBuilder(Math.Max(0, firstPrh.Length - LisPhysicalRecordHeader.HeaderLength));
+            LisPhysicalRecordHeader currentHeader = firstPrh;
+            int recordCount = 0;
+
+            while (true)
+            {
+                recordCount++;
+
+                int payloadLength = currentHeader.Length - LisPhysicalRecordHeader.HeaderLength - currentHeader.TrailerLength;
+                if (payloadLength < 0)
+                {
+                    throw new LisParseException("Invalid LIS physical record length.");
+                }
+
+                if (payloadLength > 0)
+                {
+                    payloadBuilder.AppendFromStream(stream, payloadLength, "LIS implicit data payload");
+                }
+
+                SkipBytes(stream, currentHeader.TrailerLength, "LIS physical record trailer");
+
+                if (!currentHeader.HasSuccessor)
+                {
+                    break;
+                }
+
+                currentHeader = ReadNextPhysicalRecordHeader(stream);
+                if (!currentHeader.HasPredecessor)
+                {
+                    throw new LisParseException(
+                        "Invalid LIS layout: successor chain broken (missing predecessor bit in continuation record).");
+                }
+            }
+
+            return new LisLogicalRecord(
+                new LisLogicalRecordHeader((byte)LisRecordType.NormalData, 0),
+                payloadBuilder.ToArray(),
+                recordCount);
         }
 
         /// <summary>
@@ -264,19 +434,28 @@ namespace Lis.Core.Lis
                             "Invalid LIS physical record: first segment does not contain a full LRH.");
                     }
 
-                    ReadExactly(
-                        stream,
-                        _logicalHeaderBuffer,
-                        0,
-                        LisLogicalRecordHeader.HeaderLength,
-                        "LIS logical record header");
-                    lrh = LisHeaderParser.ParseLogicalRecordHeader(_logicalHeaderBuffer, 0);
+                    int probeCount = Math.Min(payloadLength, _logicalHeaderProbeBuffer.Length);
+                    ReadExactly(stream, _logicalHeaderProbeBuffer, 0, probeCount, "LIS logical record header probe");
 
-                    int remainder = payloadLength - LisLogicalRecordHeader.HeaderLength;
-                    if (remainder > 0)
+                    int lrhOffset;
+                    if (!TryParseLogicalRecordHeaderFromProbe(_logicalHeaderProbeBuffer, probeCount, payloadLength, out LisLogicalRecordHeader parsedHeader, out lrhOffset))
                     {
-                        SkipBytes(stream, remainder, "LIS logical record data");
-                        dataLength += remainder;
+                        throw new LisParseException("Invalid LIS logical record type.");
+                    }
+
+                    lrh = parsedHeader;
+                    int consumedInProbe = lrhOffset + LisLogicalRecordHeader.HeaderLength;
+                    int dataInProbe = probeCount - consumedInProbe;
+                    if (dataInProbe > 0)
+                    {
+                        dataLength += dataInProbe;
+                    }
+
+                    int remainingPayload = payloadLength - probeCount;
+                    if (remainingPayload > 0)
+                    {
+                        SkipBytes(stream, remainingPayload, "LIS logical record data");
+                        dataLength += remainingPayload;
                     }
                 }
                 else
@@ -315,6 +494,81 @@ namespace Lis.Core.Lis
                 startOffset,
                 (LisRecordType)lrh.Type,
                 lrh.Attributes,
+                physicalRecordCount,
+                dataLength);
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «SkipNextImplicitDataRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        public LisRecordInfo SkipNextImplicitDataRecord(Stream stream)
+        {
+            if (stream == null)
+            {
+                throw new ArgumentNullException(nameof(stream));
+            }
+
+            if (!stream.CanRead)
+            {
+                throw new ArgumentException("Stream must be readable.", nameof(stream));
+            }
+
+            if (!stream.CanSeek)
+            {
+                throw new ArgumentException("Stream must be seekable.", nameof(stream));
+            }
+
+            long startOffset = stream.Position;
+            LisPhysicalRecordHeader currentHeader = ReadNextPhysicalRecordHeader(stream);
+
+            if (currentHeader.HasPredecessor)
+            {
+                throw new LisParseException(
+                    "Invalid LIS layout: implicit data record starts with continuation segment.");
+            }
+
+            int physicalRecordCount = 0;
+            int dataLength = 0;
+
+            while (true)
+            {
+                physicalRecordCount++;
+
+                int payloadLength = currentHeader.Length - LisPhysicalRecordHeader.HeaderLength - currentHeader.TrailerLength;
+                if (payloadLength < 0)
+                {
+                    throw new LisParseException("Invalid LIS physical record length.");
+                }
+
+                if (payloadLength > 0)
+                {
+                    SkipBytes(stream, payloadLength, "LIS implicit data payload");
+                    dataLength += payloadLength;
+                }
+
+                if (currentHeader.TrailerLength > 0)
+                {
+                    SkipBytes(stream, currentHeader.TrailerLength, "LIS physical record trailer");
+                }
+
+                if (!currentHeader.HasSuccessor)
+                {
+                    break;
+                }
+
+                currentHeader = ReadNextPhysicalRecordHeader(stream);
+                if (!currentHeader.HasPredecessor)
+                {
+                    throw new LisParseException(
+                        "Invalid LIS layout: successor chain broken (missing predecessor bit in continuation record).");
+                }
+            }
+
+            return new LisRecordInfo(
+                startOffset,
+                LisRecordType.NormalData,
+                headerAttributes: 0,
                 physicalRecordCount,
                 dataLength);
         }
@@ -417,6 +671,107 @@ namespace Lis.Core.Lis
             finally
             {
                 stream.Position = originalPosition;
+            }
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «LooksLikeImplicitRecord» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        private bool LooksLikeImplicitRecord(Stream stream)
+        {
+            long startPosition = stream.Position;
+            try
+            {
+                LisPhysicalRecordHeader firstPrh = ReadNextPhysicalRecordHeader(stream);
+                if (firstPrh.HasPredecessor)
+                {
+                    return false;
+                }
+
+                int payloadLength = firstPrh.Length - LisPhysicalRecordHeader.HeaderLength - firstPrh.TrailerLength;
+                if (payloadLength < LisLogicalRecordHeader.HeaderLength)
+                {
+                    return false;
+                }
+
+                ReadExactly(
+                    stream,
+                    _logicalHeaderProbeBuffer,
+                    0,
+                    LisLogicalRecordHeader.HeaderLength + 4,
+                    "LIS logical record header probe");
+
+                return !TryParseLogicalRecordHeaderFromProbe(
+                    _logicalHeaderProbeBuffer,
+                    LisLogicalRecordHeader.HeaderLength + 4,
+                    payloadLength,
+                    out _,
+                    out _);
+            }
+            catch (LisParseException)
+            {
+                return false;
+            }
+            finally
+            {
+                stream.Position = startPosition;
+            }
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «TryParseLogicalRecordHeaderFromProbe» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        private static bool TryParseLogicalRecordHeaderFromProbe(
+            byte[] probeBuffer,
+            int probeCount,
+            int payloadLength,
+            out LisLogicalRecordHeader header,
+            out int headerOffset)
+        {
+            if (TryParseLogicalRecordHeaderAt(probeBuffer, probeCount, 0, out header))
+            {
+                headerOffset = 0;
+                return true;
+            }
+
+            // Некоторые файлы содержат 4-байтовый vendor-префикс перед LRH.
+            if (payloadLength >= LisLogicalRecordHeader.HeaderLength + 4 &&
+                TryParseLogicalRecordHeaderAt(probeBuffer, probeCount, 4, out header))
+            {
+                headerOffset = 4;
+                return true;
+            }
+
+            headerOffset = 0;
+            return false;
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «TryParseLogicalRecordHeaderAt» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        private static bool TryParseLogicalRecordHeaderAt(
+            byte[] buffer,
+            int bufferCount,
+            int offset,
+            out LisLogicalRecordHeader header)
+        {
+            header = default!;
+            if (offset < 0 || offset + LisLogicalRecordHeader.HeaderLength > bufferCount)
+            {
+                return false;
+            }
+
+            try
+            {
+                header = LisHeaderParser.ParseLogicalRecordHeader(buffer, offset);
+                return true;
+            }
+            catch (LisParseException)
+            {
+                return false;
             }
         }
 

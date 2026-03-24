@@ -52,7 +52,9 @@ namespace Lis.Core.Lis
                 LisRecordIndex index = indexer.Index(stream, options.AllowMalformedData, metrics);
 
                 var partitioner = new LisLogicalFilePartitioner();
-                IReadOnlyList<LisLogicalFile> logicalFiles = partitioner.Partition(index);
+                IReadOnlyList<LisLogicalFile> logicalFiles = partitioner.Partition(
+                    index,
+                    includeRecordsBeforeFirstFileHeader: options.IncludeRecordsBeforeFirstFileHeader);
                 if (options.AllowMalformedData && logicalFiles.Count == 0 && index.Count > 0)
                 {
                     logicalFiles = new[]

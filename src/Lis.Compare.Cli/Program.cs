@@ -63,7 +63,8 @@ namespace Lis.Compare.Cli
                 selectedCurveMnemonics: null,
                 includeFrames: false,
                 includeCurves: true,
-                allowMalformedData: allowMalformed);
+                allowMalformedData: allowMalformed,
+                includeRecordsBeforeFirstFileHeader: allowMalformed);
 
             IReadOnlyList<LisLogicalFileData> files = parser.Parse(stream, options, metrics);
             var logicalFiles = new List<LogicalFileSummary>(files.Count);

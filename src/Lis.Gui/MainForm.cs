@@ -391,7 +391,8 @@ namespace Lis.Gui
                     selectedCurveMnemonics: selectedCurves,
                     includeFrames: false,
                     includeCurves: true,
-                    allowMalformedData: allowMalformedData);
+                    allowMalformedData: allowMalformedData,
+                    includeRecordsBeforeFirstFileHeader: allowMalformedData);
                 return parser.Parse(stream, options, metrics);
             }
 
@@ -399,7 +400,8 @@ namespace Lis.Gui
                 selectedCurveMnemonics: selectedCurves,
                 includeFrames: true,
                 includeCurves: false,
-                allowMalformedData: allowMalformedData);
+                allowMalformedData: allowMalformedData,
+                includeRecordsBeforeFirstFileHeader: allowMalformedData);
             return parser.Parse(stream, strictOptions, metrics);
         }
 

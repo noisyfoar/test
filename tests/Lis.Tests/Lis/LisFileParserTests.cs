@@ -151,6 +151,31 @@ namespace Lis.Tests.Lis
             Assert.True(metrics.MalformedRecordsSkipped >= 1);
         }
 
+        [Fact]
+        public void Parse_IncludeRecordsBeforeFirstFileHeader_IncludesLeadingPreHeaderRecords()
+        {
+            byte[] wellsite = BuildLogicalRecord(
+                LisRecordType.WellsiteData,
+                BuildTextRecordData("PREHEADER"));
+            byte[] fileHeader = BuildLogicalRecord(LisRecordType.FileHeader, BuildFileRecordData("FILE000300", "PREV000300"));
+            byte[] fileTrailer = BuildLogicalRecord(LisRecordType.FileTrailer, BuildFileRecordData("FILE000300", "NEXT000300"));
+            using var stream = new MemoryStream(Concat(Concat(wellsite, fileHeader), fileTrailer));
+            var parser = new LisFileParser();
+            var options = new LisReadOptions(
+                includeFrames: false,
+                includeCurves: false,
+                allowMalformedData: true,
+                includeRecordsBeforeFirstFileHeader: true);
+
+            var files = parser.Parse(stream, options);
+
+            Assert.Equal(2, files.Count);
+            Assert.Null(files[0].FileHeader);
+            Assert.Empty(files[0].TextRecords);
+            Assert.NotNull(files[1].FileHeader);
+            Assert.NotNull(files[1].FileTrailer);
+        }
+
         private static byte[] BuildLogicalRecord(LisRecordType type, byte[] data)
         {
             byte[] payload = new byte[2 + data.Length];
@@ -248,6 +273,20 @@ namespace Lis.Tests.Lis
             Put(data, offset, 5, "16384"); offset += 7;
             Put(data, offset, 2, "LI"); offset += 4;
             Put(data, offset, 10, nextOrPrevName);
+            return data;
+        }
+
+        private static byte[] BuildTextRecordData(string text)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes(text ?? string.Empty);
+            var data = new byte[2 + bytes.Length];
+            data[0] = 0;
+            data[1] = (byte)bytes.Length;
+            if (bytes.Length > 0)
+            {
+                Buffer.BlockCopy(bytes, 0, data, 2, bytes.Length);
+            }
+
             return data;
         }
 

@@ -136,6 +136,34 @@ namespace Lis.Tests.Lis
         }
 
         [Fact]
+        public void Partition_IncludeRecordsBeforeFirstHeader_ProducesLeadingIncompleteFile()
+        {
+            var index = new LisRecordIndex(new[]
+            {
+                MakeInfo(0, LisRecordType.WellsiteData),
+                MakeInfo(10, LisRecordType.DataFormatSpecification),
+                MakeInfo(20, LisRecordType.FileHeader),
+                MakeInfo(30, LisRecordType.FileTrailer),
+            });
+
+            var partitioner = new LisLogicalFilePartitioner();
+            var files = partitioner.Partition(index, includeRecordsBeforeFirstFileHeader: true);
+
+            Assert.Equal(2, files.Count);
+            Assert.False(files[0].IsComplete);
+            Assert.Null(files[0].FileHeader);
+            Assert.Null(files[0].FileTrailer);
+            Assert.Equal(2, files[0].Records.Count);
+            Assert.Equal(LisRecordType.WellsiteData, files[0].Records[0].Type);
+            Assert.Equal(LisRecordType.DataFormatSpecification, files[0].Records[1].Type);
+
+            Assert.True(files[1].IsComplete);
+            Assert.NotNull(files[1].FileHeader);
+            Assert.NotNull(files[1].FileTrailer);
+            Assert.Equal(2, files[1].Records.Count);
+        }
+
+        [Fact]
         public void LogicalFile_OfType_FiltersRecords()
         {
             var index = new LisRecordIndex(new[]
