@@ -144,3 +144,20 @@ dotnet run --project src/Lis.Gui/Lis.Gui.csproj
 
 Для поддержки проекта и быстрого входа в кодовую базу:
 - `docs/MAINTENANCE_SUMMARY.md` — архитектурный summary и правила безопасного рефакторинга.
+
+## Сравнение с Python + dlisio
+
+Добавлен отдельный проект для кросс-проверки данных:
+
+- `src/Lis.Compare.Cli` — C# CLI, формирующий JSON summary из `Lis.Core`
+- `python_dlisio_compare` — Python-скрипт, читающий тот же файл через `dlisio` и сравнивающий структуры/каналы
+
+Быстрый запуск:
+
+```bash
+cd python_dlisio_compare
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python compare_with_dlisio.py /path/to/file.lis --repo-root /workspace
+```

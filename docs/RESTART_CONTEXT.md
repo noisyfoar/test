@@ -30,7 +30,10 @@
    - `src/Lis.Gui` (WinForms, `.NET Framework 4.8`),
    - открыть `.lis`, выбрать curves, получить текстовый отчёт без графиков,
    - отдельная вкладка `Raw records` с offset/type/length/class и привязкой к logical file.
-3. Тесты полностью переведены на LIS:
+4. Добавлен проект сравнения с Python+dlisio:
+   - `src/Lis.Compare.Cli` формирует JSON summary из `Lis.Core`,
+   - `python_dlisio_compare/compare_with_dlisio.py` читает тот же файл через `dlisio` и сравнивает структуры/каналы.
+5. Тесты полностью переведены на LIS:
    - `tests/Lis.Tests/Lis/*`.
 
 ## Текущее состояние качества
@@ -79,6 +82,8 @@ dotnet test LisNet.sln
    - `src/Lis.Core/Lis/LisImporter.cs`
    - `src/Lis.Core/Lis/LisExporter.cs`
    - `src/Lis.Core/Lis/LisDocument.cs`
+   - `src/Lis.Compare.Cli/Program.cs`
+   - `python_dlisio_compare/compare_with_dlisio.py`
    - `src/Lis.Gui/MainForm.cs`
    - `src/Lis.Core/Lis/LisHeaderParser.cs`
    - `tests/Lis.Tests/Lis/*`
