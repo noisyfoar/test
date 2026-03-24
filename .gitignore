@@ -21,3 +21,6 @@ packages/
 
 # Python local environments
 .venv/
+
+# External cloned repositories and ad-hoc local datasets
+external/
