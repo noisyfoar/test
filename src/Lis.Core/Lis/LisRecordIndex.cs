@@ -6,36 +6,39 @@ namespace Lis.Core.Lis
     public sealed class LisRecordIndex
     {
         private readonly List<LisRecordInfo> _records;
-        private readonly List<LisRecordInfo> _implicitRecords;
-        private readonly List<LisRecordInfo> _explicitRecords;
+        private List<LisRecordInfo>? _implicitRecords;
+        private List<LisRecordInfo>? _explicitRecords;
 
         /// <summary>
         /// Подробно выполняет операцию «LisRecordIndex» для обработки данных формата LIS.
         /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
         /// </summary>
         public LisRecordIndex(IReadOnlyList<LisRecordInfo> records)
+            : this(records, copyRecords: true)
+        {
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «LisRecordIndex» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        internal LisRecordIndex(IReadOnlyList<LisRecordInfo> records, bool copyRecords)
         {
             if (records == null)
             {
                 throw new ArgumentNullException(nameof(records));
             }
 
-            _records = new List<LisRecordInfo>(records.Count);
-            _implicitRecords = new List<LisRecordInfo>();
-            _explicitRecords = new List<LisRecordInfo>();
+            if (!copyRecords && records is List<LisRecordInfo> list)
+            {
+                _records = list;
+                return;
+            }
 
+            _records = new List<LisRecordInfo>(records.Count);
             for (int i = 0; i < records.Count; i++)
             {
-                LisRecordInfo info = records[i];
-                _records.Add(info);
-                if (info.IsImplicitRecord)
-                {
-                    _implicitRecords.Add(info);
-                }
-                else
-                {
-                    _explicitRecords.Add(info);
-                }
+                _records.Add(records[i]);
             }
         }
 
@@ -46,12 +49,20 @@ namespace Lis.Core.Lis
 
         public IReadOnlyList<LisRecordInfo> ImplicitRecords
         {
-            get { return _implicitRecords; }
+            get
+            {
+                EnsureBucketsBuilt();
+                return _implicitRecords!;
+            }
         }
 
         public IReadOnlyList<LisRecordInfo> ExplicitRecords
         {
-            get { return _explicitRecords; }
+            get
+            {
+                EnsureBucketsBuilt();
+                return _explicitRecords!;
+            }
         }
 
         public int Count
@@ -75,6 +86,33 @@ namespace Lis.Core.Lis
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «EnsureBucketsBuilt» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        private void EnsureBucketsBuilt()
+        {
+            if (_implicitRecords != null && _explicitRecords != null)
+            {
+                return;
+            }
+
+            _implicitRecords = new List<LisRecordInfo>(_records.Count);
+            _explicitRecords = new List<LisRecordInfo>(_records.Count);
+            for (int i = 0; i < _records.Count; i++)
+            {
+                LisRecordInfo info = _records[i];
+                if (info.IsImplicitRecord)
+                {
+                    _implicitRecords.Add(info);
+                }
+                else
+                {
+                    _explicitRecords.Add(info);
+                }
+            }
         }
     }
 }

@@ -6,6 +6,9 @@ namespace Lis.Core.Lis
 {
     public sealed class LisReader
     {
+        private readonly byte[] _physicalHeaderBuffer = new byte[LisPhysicalRecordHeader.HeaderLength];
+        private readonly byte[] _logicalHeaderBuffer = new byte[LisLogicalRecordHeader.HeaderLength];
+
         /// <summary>
         /// Подробно выполняет операцию «TrySkipNextLogicalRecord» для обработки данных формата LIS.
         /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
@@ -126,26 +129,30 @@ namespace Lis.Core.Lis
                     throw new LisParseException("Invalid LIS physical record length.");
                 }
 
-                byte[] payload = ReadExactly(stream, payloadLength, "LIS physical record payload");
-                SkipBytes(stream, currentHeader.TrailerLength, "LIS physical record trailer");
-
-                int payloadOffset = 0;
                 if (!currentHeader.HasPredecessor)
                 {
-                    if (payload.Length < LisLogicalRecordHeader.HeaderLength)
+                    if (payloadLength < LisLogicalRecordHeader.HeaderLength)
                     {
                         throw new LisParseException(
                             "Invalid LIS physical record: first segment does not contain a full LRH.");
                     }
 
-                    logicalRecordHeader = LisHeaderParser.ParseLogicalRecordHeader(payload, 0);
-                    payloadOffset = LisLogicalRecordHeader.HeaderLength;
+                    ReadExactly(
+                        stream,
+                        _logicalHeaderBuffer,
+                        0,
+                        LisLogicalRecordHeader.HeaderLength,
+                        "LIS logical record header");
+                    logicalRecordHeader = LisHeaderParser.ParseLogicalRecordHeader(_logicalHeaderBuffer, 0);
+                    payloadLength -= LisLogicalRecordHeader.HeaderLength;
                 }
 
-                if (payload.Length > payloadOffset)
+                if (payloadLength > 0)
                 {
-                    payloadBuilder.Append(payload, payloadOffset, payload.Length - payloadOffset);
+                    payloadBuilder.AppendFromStream(stream, payloadLength, "LIS physical record payload");
                 }
+
+                SkipBytes(stream, currentHeader.TrailerLength, "LIS physical record trailer");
 
                 if (!currentHeader.HasSuccessor)
                 {
@@ -184,18 +191,25 @@ namespace Lis.Core.Lis
                 throw new ArgumentException("Stream must be readable.", nameof(stream));
             }
 
-            byte[] headerBytes = ReadExactly(stream, LisPhysicalRecordHeader.HeaderLength, "LIS physical record header");
+            ReadExactly(
+                stream,
+                _physicalHeaderBuffer,
+                0,
+                LisPhysicalRecordHeader.HeaderLength,
+                "LIS physical record header");
 
             // Пропускаем очевидные 4-байтовые блоки паддинга (0x00... или 0x20...).
-            while (LisHeaderParser.IsPadBytes(headerBytes, 0, headerBytes.Length))
+            while (LisHeaderParser.IsPadBytes(_physicalHeaderBuffer, 0, _physicalHeaderBuffer.Length))
             {
-                headerBytes = ReadExactly(
+                ReadExactly(
                     stream,
+                    _physicalHeaderBuffer,
+                    0,
                     LisPhysicalRecordHeader.HeaderLength,
                     "LIS physical record header after padding");
             }
 
-            return LisHeaderParser.ParsePhysicalRecordHeader(headerBytes, 0);
+            return LisHeaderParser.ParsePhysicalRecordHeader(_physicalHeaderBuffer, 0);
         }
 
         /// <summary>
@@ -250,8 +264,13 @@ namespace Lis.Core.Lis
                             "Invalid LIS physical record: first segment does not contain a full LRH.");
                     }
 
-                    byte[] lrhBytes = ReadExactly(stream, LisLogicalRecordHeader.HeaderLength, "LIS logical record header");
-                    lrh = LisHeaderParser.ParseLogicalRecordHeader(lrhBytes, 0);
+                    ReadExactly(
+                        stream,
+                        _logicalHeaderBuffer,
+                        0,
+                        LisLogicalRecordHeader.HeaderLength,
+                        "LIS logical record header");
+                    lrh = LisHeaderParser.ParseLogicalRecordHeader(_logicalHeaderBuffer, 0);
 
                     int remainder = payloadLength - LisLogicalRecordHeader.HeaderLength;
                     if (remainder > 0)
@@ -304,13 +323,17 @@ namespace Lis.Core.Lis
         /// Подробно выполняет операцию «ReadExactly» для обработки данных формата LIS.
         /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
         /// </summary>
-        private static byte[] ReadExactly(Stream stream, int count, string componentName)
+        private static void ReadExactly(
+            Stream stream,
+            byte[] buffer,
+            int offset,
+            int count,
+            string componentName)
         {
-            var buffer = new byte[count];
             int totalRead = 0;
             while (totalRead < count)
             {
-                int n = stream.Read(buffer, totalRead, count - totalRead);
+                int n = stream.Read(buffer, offset + totalRead, count - totalRead);
                 if (n == 0)
                 {
                     throw new LisParseException("Unexpected end of stream while reading " + componentName + ".");
@@ -318,8 +341,6 @@ namespace Lis.Core.Lis
 
                 totalRead += n;
             }
-
-            return buffer;
         }
 
         /// <summary>
@@ -333,7 +354,26 @@ namespace Lis.Core.Lis
                 return;
             }
 
-            ReadExactly(stream, count, componentName);
+            if (stream.CanSeek)
+            {
+                long remaining = stream.Length - stream.Position;
+                if (remaining < count)
+                {
+                    throw new LisParseException("Unexpected end of stream while reading " + componentName + ".");
+                }
+
+                stream.Position += count;
+                return;
+            }
+
+            var scratch = new byte[Math.Min(count, 4096)];
+            int remainingToSkip = count;
+            while (remainingToSkip > 0)
+            {
+                int block = Math.Min(remainingToSkip, scratch.Length);
+                ReadExactly(stream, scratch, 0, block, componentName);
+                remainingToSkip -= block;
+            }
         }
 
         /// <summary>
@@ -408,6 +448,33 @@ namespace Lis.Core.Lis
 
                 EnsureCapacity(_length + count);
                 Buffer.BlockCopy(source, offset, _buffer, _length, count);
+                _length += count;
+            }
+
+            /// <summary>
+            /// Подробно выполняет операцию «AppendFromStream» для обработки данных формата LIS.
+            /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+            /// </summary>
+            public void AppendFromStream(Stream stream, int count, string componentName)
+            {
+                if (count <= 0)
+                {
+                    return;
+                }
+
+                EnsureCapacity(_length + count);
+                int totalRead = 0;
+                while (totalRead < count)
+                {
+                    int n = stream.Read(_buffer, _length + totalRead, count - totalRead);
+                    if (n == 0)
+                    {
+                        throw new LisParseException("Unexpected end of stream while reading " + componentName + ".");
+                    }
+
+                    totalRead += n;
+                }
+
                 _length += count;
             }
 

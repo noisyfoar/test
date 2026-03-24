@@ -80,7 +80,7 @@ namespace Lis.Core.Lis
                 records.Add(info);
             }
 
-            return new LisRecordIndex(records);
+            return new LisRecordIndex(records, copyRecords: false);
         }
 
         /// <summary>
