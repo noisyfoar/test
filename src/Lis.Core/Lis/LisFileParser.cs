@@ -49,10 +49,17 @@ namespace Lis.Core.Lis
             try
             {
                 var indexer = new LisIndexer();
-                LisRecordIndex index = indexer.Index(stream);
+                LisRecordIndex index = indexer.Index(stream, options.AllowMalformedData, metrics);
 
                 var partitioner = new LisLogicalFilePartitioner();
                 IReadOnlyList<LisLogicalFile> logicalFiles = partitioner.Partition(index);
+                if (options.AllowMalformedData && logicalFiles.Count == 0 && index.Count > 0)
+                {
+                    logicalFiles = new[]
+                    {
+                        new LisLogicalFile(index.Records, fileHeader: null, fileTrailer: null, isComplete: false)
+                    };
+                }
 
                 var parser = new LisLogicalFileParser();
                 var parsed = new List<LisLogicalFileData>(logicalFiles.Count);

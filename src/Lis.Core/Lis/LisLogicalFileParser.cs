@@ -66,43 +66,93 @@ namespace Lis.Core.Lis
             {
                 LisRecordInfo info = logicalFile.Records[i];
                 stream.Position = info.Offset;
-                LisLogicalRecord record = reader.ReadNextLogicalRecord(stream);
+                LisLogicalRecord record;
+                try
+                {
+                    record = reader.ReadNextLogicalRecord(stream);
+                }
+                catch (Exception) when (options.AllowMalformedData)
+                {
+                    metrics?.AddMalformedRecordsSkipped(1);
+                    continue;
+                }
+
                 metrics?.AddLogicalRecordsRead(1);
                 LisRecordType type = (LisRecordType)record.Header.Type;
 
                 switch (type)
                 {
                     case LisRecordType.FileHeader:
-                        fileHeader = fixedParser.ParseFileHeader(record);
+                        try
+                        {
+                            fileHeader = fixedParser.ParseFileHeader(record);
+                        }
+                        catch (Exception) when (options.AllowMalformedData)
+                        {
+                            metrics?.AddMalformedRecordsSkipped(1);
+                        }
+
                         break;
 
                     case LisRecordType.FileTrailer:
-                        fileTrailer = fixedParser.ParseFileTrailer(record);
+                        try
+                        {
+                            fileTrailer = fixedParser.ParseFileTrailer(record);
+                        }
+                        catch (Exception) when (options.AllowMalformedData)
+                        {
+                            metrics?.AddMalformedRecordsSkipped(1);
+                        }
+
                         break;
 
                     case LisRecordType.DataFormatSpecification:
-                        activeDfsr = dfsrParser.Parse(record);
-                        dfsrs.Add(activeDfsr);
+                        try
+                        {
+                            activeDfsr = dfsrParser.Parse(record);
+                            dfsrs.Add(activeDfsr);
+                        }
+                        catch (Exception) when (options.AllowMalformedData)
+                        {
+                            metrics?.AddMalformedRecordsSkipped(1);
+                        }
+
                         break;
 
                     case LisRecordType.NormalData:
                     case LisRecordType.AlternateData:
-                        HandleDataRecord(
-                            record,
-                            activeDfsr,
-                            options,
-                            selectedCurves,
-                            metrics,
-                            fdataParser,
-                            frames,
-                            curveAccumulator);
+                        try
+                        {
+                            HandleDataRecord(
+                                record,
+                                activeDfsr,
+                                options,
+                                selectedCurves,
+                                metrics,
+                                fdataParser,
+                                frames,
+                                curveAccumulator);
+                        }
+                        catch (Exception) when (options.AllowMalformedData)
+                        {
+                            metrics?.AddMalformedRecordsSkipped(1);
+                        }
+
                         break;
 
                     case LisRecordType.OperatorCommandInputs:
                     case LisRecordType.OperatorResponseInputs:
                     case LisRecordType.SystemOutputs:
                     case LisRecordType.FlicComment:
-                        textRecords.Add(fixedParser.ParseTextRecord(record));
+                        try
+                        {
+                            textRecords.Add(fixedParser.ParseTextRecord(record));
+                        }
+                        catch (Exception) when (options.AllowMalformedData)
+                        {
+                            metrics?.AddMalformedRecordsSkipped(1);
+                        }
+
                         break;
                 }
             }

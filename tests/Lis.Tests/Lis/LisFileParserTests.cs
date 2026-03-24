@@ -131,6 +131,26 @@ namespace Lis.Tests.Lis
             Assert.True(metrics.ParseElapsedMilliseconds >= 0);
         }
 
+        [Fact]
+        public void Parse_AllowMalformedData_SkipsBrokenSegmentAndReturnsPartialResult()
+        {
+            byte[] fileHeader = BuildLogicalRecord(LisRecordType.FileHeader, BuildFileRecordData("FILE000200", "PREV000200"));
+            byte[] broken = new byte[] { 0x00, 0x08, 0x00, 0x00, 0xAA, 0x00, 0x55, 0x55 };
+            byte[] fileTrailer = BuildLogicalRecord(LisRecordType.FileTrailer, BuildFileRecordData("FILE000200", "NEXT000200"));
+
+            using var stream = new MemoryStream(Concat(fileHeader, broken, fileTrailer));
+            var parser = new LisFileParser();
+            var options = new LisReadOptions(includeFrames: false, includeCurves: false, allowMalformedData: true);
+            var metrics = new LisReadMetrics();
+
+            var files = parser.Parse(stream, options, metrics);
+
+            Assert.Single(files);
+            Assert.NotNull(files[0].FileHeader);
+            Assert.NotNull(files[0].FileTrailer);
+            Assert.True(metrics.MalformedRecordsSkipped >= 1);
+        }
+
         private static byte[] BuildLogicalRecord(LisRecordType type, byte[] data)
         {
             byte[] payload = new byte[2 + data.Length];

@@ -14,11 +14,13 @@ namespace Lis.Core.Lis
         public LisReadOptions(
             IReadOnlyCollection<string>? selectedCurveMnemonics = null,
             bool includeFrames = true,
-            bool includeCurves = false)
+            bool includeCurves = false,
+            bool allowMalformedData = false)
         {
             SelectedCurveMnemonics = selectedCurveMnemonics;
             IncludeFrames = includeFrames;
             IncludeCurves = includeCurves;
+            AllowMalformedData = allowMalformedData;
         }
 
         /// <summary>
@@ -35,6 +37,12 @@ namespace Lis.Core.Lis
         /// Если значение включено, парсер накапливает сэмплы в словарь кривых.
         /// </summary>
         public bool IncludeCurves { get; }
+
+        /// <summary>
+        /// Если значение включено, парсер выполняет максимально возможный разбор
+        /// при повреждённых данных, пропуская проблемные участки вместо остановки.
+        /// </summary>
+        public bool AllowMalformedData { get; }
 
         /// <summary>
         /// Подробно выполняет операцию «BuildSelectedCurveSet» для обработки данных формата LIS.

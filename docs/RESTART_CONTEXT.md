@@ -32,7 +32,8 @@
    - отдельная вкладка `Raw records` с offset/type/length/class и привязкой к logical file.
 4. Добавлен проект сравнения с Python+dlisio:
    - `src/Lis.Compare.Cli` формирует JSON summary из `Lis.Core`,
-   - `python_dlisio_compare/compare_with_dlisio.py` читает тот же файл через `dlisio` и сравнивает структуры/каналы.
+   - `python_dlisio_compare/compare_with_dlisio.py` читает тот же файл через `dlisio` и сравнивает структуры/каналы,
+   - по умолчанию сравнение использует tolerant-режим `Lis.Core` для повреждённых данных.
 5. Тесты полностью переведены на LIS:
    - `tests/Lis.Tests/Lis/*`.
 

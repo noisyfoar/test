@@ -31,6 +31,11 @@ namespace Lis.Core.Lis
         public long ParseElapsedMilliseconds { get; private set; }
 
         /// <summary>
+        /// Количество логических записей, пропущенных из-за ошибок в tolerant-режиме.
+        /// </summary>
+        public long MalformedRecordsSkipped { get; private set; }
+
+        /// <summary>
         /// Подробно выполняет операцию «AddLogicalRecordsRead» для обработки данных формата LIS.
         /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
         /// </summary>
@@ -73,6 +78,15 @@ namespace Lis.Core.Lis
         internal void SetParseElapsedMilliseconds(long elapsedMilliseconds)
         {
             ParseElapsedMilliseconds = elapsedMilliseconds;
+        }
+
+        /// <summary>
+        /// Подробно выполняет операцию «AddMalformedRecordsSkipped» для обработки данных формата LIS.
+        /// Метод проверяет входные значения, соблюдает инварианты формата и формирует результат согласно контракту.
+        /// </summary>
+        internal void AddMalformedRecordsSkipped(long count)
+        {
+            MalformedRecordsSkipped += count;
         }
     }
 }

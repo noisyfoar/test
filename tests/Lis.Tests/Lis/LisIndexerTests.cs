@@ -100,6 +100,25 @@ namespace Lis.Tests.Lis
         }
 
         [Fact]
+        public void Index_AllowMalformedData_SkipsBrokenRecordAndContinues()
+        {
+            byte[] goodHeader = BuildPhysicalRecord(0x0000, BuildLrhPayload((byte)LisRecordType.FileHeader, 0x00, 0x10));
+            byte[] broken = new byte[] { 0x00, 0x06, 0x00, 0x00, 0xAA, 0x00 };
+            byte[] goodTrailer = BuildPhysicalRecord(0x0000, BuildLrhPayload((byte)LisRecordType.FileTrailer, 0x00, 0x20));
+
+            using var stream = new MemoryStream(Concat(goodHeader, broken, goodTrailer));
+            var indexer = new LisIndexer();
+            var metrics = new LisReadMetrics();
+
+            LisRecordIndex index = indexer.Index(stream, allowMalformedData: true, metrics);
+
+            Assert.Equal(2, index.Count);
+            Assert.Equal(LisRecordType.FileHeader, index.Records[0].Type);
+            Assert.Equal(LisRecordType.FileTrailer, index.Records[1].Type);
+            Assert.True(metrics.MalformedRecordsSkipped >= 1);
+        }
+
+        [Fact]
         public void Index_NullStream_ThrowsArgumentNullException()
         {
             var indexer = new LisIndexer();

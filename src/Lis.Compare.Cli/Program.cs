@@ -55,10 +55,15 @@ namespace Lis.Compare.Cli
             using var stream = File.OpenRead(inputPath);
             var parser = new LisFileParser();
             var metrics = new LisReadMetrics();
+            bool allowMalformed = string.Equals(
+                Environment.GetEnvironmentVariable("LIS_ALLOW_MALFORMED"),
+                "1",
+                StringComparison.Ordinal);
             var options = new LisReadOptions(
                 selectedCurveMnemonics: null,
                 includeFrames: false,
-                includeCurves: true);
+                includeCurves: true,
+                allowMalformedData: allowMalformed);
 
             IReadOnlyList<LisLogicalFileData> files = parser.Parse(stream, options, metrics);
             var logicalFiles = new List<LogicalFileSummary>(files.Count);
@@ -131,6 +136,7 @@ namespace Lis.Compare.Cli
                     FdataBytesRead = metrics.FdataBytesRead,
                     SamplesDecoded = metrics.SamplesDecoded,
                     SamplesSkipped = metrics.SamplesSkipped,
+                    MalformedRecordsSkipped = metrics.MalformedRecordsSkipped,
                     ParseElapsedMilliseconds = metrics.ParseElapsedMilliseconds
                 }
             };
@@ -210,6 +216,8 @@ namespace Lis.Compare.Cli
             public long SamplesDecoded { get; set; }
 
             public long SamplesSkipped { get; set; }
+
+            public long MalformedRecordsSkipped { get; set; }
 
             public long ParseElapsedMilliseconds { get; set; }
         }

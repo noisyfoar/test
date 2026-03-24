@@ -38,6 +38,7 @@ python compare_with_dlisio.py /path/to/file.lis --repo-root /workspace
 - `lis_file` — путь к LIS файлу (обязательный)
 - `--repo-root` — корень репозитория (по умолчанию автоопределение)
 - `--core-json` — путь куда сохранить JSON summary от `Lis.Core` (по умолчанию `core_summary.json`)
+- `--strict-core` — включить строгий режим `Lis.Core` (по умолчанию используется tolerant-режим)
 
 ## Выход
 

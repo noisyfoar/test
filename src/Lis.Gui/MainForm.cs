@@ -315,17 +315,32 @@ namespace Lis.Gui
             LisReadMetrics metrics)
         {
             var parser = new LisFileParser();
-            if (_curvesOnlyCheckBox.Checked)
+            try
             {
-                return parser.ParseCurves(stream, selectedCurves, metrics);
+                if (_curvesOnlyCheckBox.Checked)
+                {
+                    return parser.ParseCurves(stream, selectedCurves, metrics);
+                }
+
+                var strictOptions = new LisReadOptions(
+                    selectedCurveMnemonics: selectedCurves,
+                    includeFrames: true,
+                    includeCurves: false,
+                    allowMalformedData: false);
+
+                return parser.Parse(stream, strictOptions, metrics);
             }
-
-            var options = new LisReadOptions(
-                selectedCurveMnemonics: selectedCurves,
-                includeFrames: true,
-                includeCurves: false);
-
-            return parser.Parse(stream, options, metrics);
+            catch (LisParseException)
+            {
+                // Автоматический fallback для «грязных» LIS-файлов.
+                stream.Position = 0;
+                var tolerantOptions = new LisReadOptions(
+                    selectedCurveMnemonics: selectedCurves,
+                    includeFrames: !_curvesOnlyCheckBox.Checked,
+                    includeCurves: _curvesOnlyCheckBox.Checked,
+                    allowMalformedData: true);
+                return parser.Parse(stream, tolerantOptions, metrics);
+            }
         }
 
         private static IReadOnlyCollection<string>? ParseSelectedCurves(string input)
@@ -352,7 +367,7 @@ namespace Lis.Gui
         private void PopulateRawRecords(Stream stream)
         {
             stream.Position = 0;
-            var index = new LisIndexer().Index(stream);
+            var index = new LisIndexer().Index(stream, allowMalformedData: true);
             var logicalFiles = new LisLogicalFilePartitioner().Partition(index);
 
             var fileByOffset = new Dictionary<long, int>();
@@ -433,6 +448,7 @@ namespace Lis.Gui
             sb.AppendLine("FdataBytesRead: " + metrics.FdataBytesRead);
             sb.AppendLine("SamplesDecoded: " + metrics.SamplesDecoded);
             sb.AppendLine("SamplesSkipped: " + metrics.SamplesSkipped);
+            sb.AppendLine("MalformedRecordsSkipped: " + metrics.MalformedRecordsSkipped);
             sb.AppendLine("ParseElapsedMilliseconds: " + metrics.ParseElapsedMilliseconds);
 
             return sb.ToString();
