@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Lis.Core.Lis;
 
@@ -27,6 +28,15 @@ namespace Lis.Gui
         private readonly Label _statusLabel;
         private readonly TextBox _reportTextBox;
         private readonly DataGridView _rawRecordsGrid;
+
+        private sealed class LoadResult
+        {
+            public string StatusText { get; set; } = DefaultStatus;
+
+            public string ReportText { get; set; } = string.Empty;
+
+            public List<object[]> RawRows { get; } = new List<object[]>();
+        }
 
         public MainForm()
         {
@@ -61,7 +71,7 @@ namespace Lis.Gui
             }
         }
 
-        private void OnLoadClick(object? sender, EventArgs e)
+        private async void OnLoadClick(object? sender, EventArgs e)
         {
             if (!TryGetValidatedInputPath(out string filePath))
             {
@@ -73,32 +83,15 @@ namespace Lis.Gui
                 SetBusyState(true, ReadingStatus);
                 ResetOutputViews();
 
-                using var stream = File.OpenRead(filePath);
-                LisReadMetrics metrics = new LisReadMetrics();
+                bool curvesOnly = _curvesOnlyCheckBox.Checked;
+                bool allowMalformed = _allowMalformedCheckBox.Checked;
                 IReadOnlyCollection<string>? selectedCurves = ParseSelectedCurves(_selectedCurvesTextBox.Text);
+                LoadResult result = await Task.Run(() =>
+                    LoadFile(filePath, selectedCurves, curvesOnly, allowMalformed));
 
-                IReadOnlyList<LisLogicalFileData> parsed;
-                try
-                {
-                    parsed = ParseFiles(stream, selectedCurves, metrics, _allowMalformedCheckBox.Checked);
-                }
-                catch (LisParseException ex) when (!_allowMalformedCheckBox.Checked)
-                {
-                    // Автоматический fallback для «грязных» LIS-файлов.
-                    stream.Position = 0;
-                    metrics = new LisReadMetrics();
-                    parsed = ParseFiles(stream, selectedCurves, metrics, allowMalformedData: true);
-
-                    _statusLabel.Text = ReadErrorStatus + " Автоматически включён tolerant-режим.";
-                    _reportTextBox.Text = "Исходная ошибка strict-режима:\r\n" + ex + "\r\n\r\n"
-                        + BuildReport(parsed, metrics, _curvesOnlyCheckBox.Checked);
-                    PopulateRawRecords(stream);
-                    return;
-                }
-
-                _reportTextBox.Text = BuildReport(parsed, metrics, _curvesOnlyCheckBox.Checked);
-                PopulateRawRecords(stream);
-                _statusLabel.Text = DefaultStatus;
+                _reportTextBox.Text = result.ReportText;
+                PopulateRawRecordsGrid(result.RawRows);
+                _statusLabel.Text = result.StatusText;
             }
             catch (Exception ex)
             {
@@ -338,14 +331,61 @@ namespace Lis.Gui
             _rawRecordsGrid.Rows.Clear();
         }
 
+        private LoadResult LoadFile(
+            string filePath,
+            IReadOnlyCollection<string>? selectedCurves,
+            bool curvesOnly,
+            bool allowMalformedData)
+        {
+            using var stream = File.OpenRead(filePath);
+            LisReadMetrics metrics = new LisReadMetrics();
+            IReadOnlyList<LisLogicalFileData> parsed;
+            bool usedAutomaticFallback = false;
+            string? strictErrorText = null;
+
+            try
+            {
+                parsed = ParseFiles(stream, selectedCurves, metrics, curvesOnly, allowMalformedData);
+            }
+            catch (LisParseException ex) when (!allowMalformedData)
+            {
+                // Автоматический fallback для «грязных» LIS-файлов.
+                stream.Position = 0;
+                metrics = new LisReadMetrics();
+                parsed = ParseFiles(stream, selectedCurves, metrics, curvesOnly, allowMalformedData: true);
+                usedAutomaticFallback = true;
+                strictErrorText = ex.ToString();
+            }
+
+            var result = new LoadResult
+            {
+                StatusText = usedAutomaticFallback
+                    ? ReadErrorStatus + " Автоматически включён tolerant-режим."
+                    : DefaultStatus
+            };
+
+            string report = BuildReport(parsed, metrics, curvesOnly);
+            if (usedAutomaticFallback && strictErrorText != null)
+            {
+                report = "Исходная ошибка strict-режима:\r\n" + strictErrorText + "\r\n\r\n" + report;
+            }
+
+            result.ReportText = report;
+
+            stream.Position = 0;
+            result.RawRows.AddRange(BuildRawRecordRows(stream));
+            return result;
+        }
+
         private IReadOnlyList<LisLogicalFileData> ParseFiles(
             Stream stream,
             IReadOnlyCollection<string>? selectedCurves,
             LisReadMetrics metrics,
+            bool curvesOnly,
             bool allowMalformedData)
         {
             var parser = new LisFileParser();
-            if (_curvesOnlyCheckBox.Checked)
+            if (curvesOnly)
             {
                 var options = new LisReadOptions(
                     selectedCurveMnemonics: selectedCurves,
@@ -384,7 +424,7 @@ namespace Lis.Gui
             return selected.Count == 0 ? null : selected;
         }
 
-        private void PopulateRawRecords(Stream stream)
+        private static List<object[]> BuildRawRecordRows(Stream stream)
         {
             stream.Position = 0;
             var index = new LisIndexer().Index(stream, allowMalformedData: true);
@@ -400,7 +440,7 @@ namespace Lis.Gui
                 }
             }
 
-            _rawRecordsGrid.Rows.Clear();
+            var rows = new List<object[]>(index.Records.Count);
             for (int i = 0; i < index.Records.Count; i++)
             {
                 LisRecordInfo record = index.Records[i];
@@ -408,7 +448,8 @@ namespace Lis.Gui
                     ? fileNumber.ToString()
                     : "-";
 
-                _rawRecordsGrid.Rows.Add(
+                rows.Add(new object[]
+                {
                     i + 1,
                     logicalFile,
                     record.Offset,
@@ -416,7 +457,19 @@ namespace Lis.Gui
                     "0x" + record.HeaderAttributes.ToString("X2"),
                     record.PhysicalRecordCount,
                     record.DataLength,
-                    record.IsImplicitRecord ? "implicit" : "explicit");
+                    record.IsImplicitRecord ? "implicit" : "explicit"
+                });
+            }
+
+            return rows;
+        }
+
+        private void PopulateRawRecordsGrid(IReadOnlyList<object[]> rows)
+        {
+            _rawRecordsGrid.Rows.Clear();
+            for (int i = 0; i < rows.Count; i++)
+            {
+                _rawRecordsGrid.Rows.Add(rows[i]);
             }
         }
 
