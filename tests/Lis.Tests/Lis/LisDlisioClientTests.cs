@@ -51,7 +51,9 @@ namespace Lis.Tests.Lis
             var options = new LisDlisioOptions
             {
                 ScriptPath = script.Path,
-                TimeoutMilliseconds = 1000
+                TimeoutMilliseconds = 1000,
+                PreferPythonBridge = true,
+                EnableCoreFallback = false
             };
 
             LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path, options));
@@ -75,7 +77,9 @@ namespace Lis.Tests.Lis
             var client = new LisDlisioClient(runner);
             var options = new LisDlisioOptions
             {
-                ScriptPath = script.Path
+                ScriptPath = script.Path,
+                PreferPythonBridge = true,
+                EnableCoreFallback = false
             };
 
             LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path, options));
@@ -127,7 +131,8 @@ namespace Lis.Tests.Lis
                 PythonExecutablePath = "python3",
                 ScriptPath = script.Path,
                 WorkingDirectory = tempRoot,
-                TimeoutMilliseconds = 32100
+                TimeoutMilliseconds = 32100,
+                PreferPythonBridge = true
             };
             options.EnvironmentVariables["PYTHONPATH"] = "x";
 
@@ -165,7 +170,9 @@ namespace Lis.Tests.Lis
             var client = new LisDlisioClient(runner);
             var options = new LisDlisioOptions
             {
-                ScriptPath = script.Path
+                ScriptPath = script.Path,
+                PreferPythonBridge = true,
+                EnableCoreFallback = false
             };
 
             LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path, options));
@@ -185,7 +192,9 @@ namespace Lis.Tests.Lis
             var client = new LisDlisioClient(runner);
             var options = new LisDlisioOptions
             {
-                ScriptPath = script.Path
+                ScriptPath = script.Path,
+                PreferPythonBridge = true,
+                EnableCoreFallback = false
             };
 
             LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path, options));
@@ -193,9 +202,64 @@ namespace Lis.Tests.Lis
             Assert.IsType<InvalidOperationException>(ex.InnerException);
         }
 
+        [Fact]
+        public void ReadSummary_RunnerThrows_WithFallbackEnabled_ReturnsCoreSummary()
+        {
+            using var lis = TempFile.Create(".lis", BuildSimpleLisFile());
+            using var script = TempFile.Create(".py", "# stub");
+            var runner = new FakeRunner
+            {
+                Handler = (_, _, _, _, _) => throw new InvalidOperationException("python not installed")
+            };
+
+            var client = new LisDlisioClient(runner);
+            var options = new LisDlisioOptions
+            {
+                ScriptPath = script.Path,
+                PreferPythonBridge = true,
+                EnableCoreFallback = true
+            };
+
+            LisDlisioSummary summary = client.ReadSummary(lis.Path, options);
+
+            Assert.Single(summary.LogicalFiles);
+            Assert.Empty(summary.Errors);
+            Assert.Equal("FILE000900", summary.LogicalFiles[0].FileHeaderName);
+            Assert.Equal("FILE000900", summary.LogicalFiles[0].FileTrailerName);
+            Assert.Equal(1, summary.LogicalFiles[0].Dfsrs.Count);
+            Assert.Equal("C1", summary.LogicalFiles[0].Dfsrs[0].Channels[0].Mnemonic);
+        }
+
+        [Fact]
+        public void ReadSummary_PreferPythonBridgeFalse_SkipsRunnerAndUsesCore()
+        {
+            using var lis = TempFile.Create(".lis", BuildSimpleLisFile());
+            var runner = new FakeRunner
+            {
+                Handler = (_, _, _, _, _) =>
+                {
+                    throw new InvalidOperationException("Runner must not be called.");
+                }
+            };
+
+            var client = new LisDlisioClient(runner);
+            var options = new LisDlisioOptions
+            {
+                PreferPythonBridge = false
+            };
+
+            LisDlisioSummary summary = client.ReadSummary(lis.Path, options);
+
+            Assert.False(runner.WasCalled);
+            Assert.Single(summary.LogicalFiles);
+            Assert.Equal("FILE000900", summary.LogicalFiles[0].FileHeaderName);
+            Assert.Single(summary.LogicalFiles[0].Dfsrs);
+        }
+
         private sealed class FakeRunner : ILisDlisioProcessRunner
         {
             public Func<string, string, string, int, IDictionary<string, string>, LisDlisioProcessResult>? Handler { get; set; }
+            public bool WasCalled { get; private set; }
 
             public string LastExecutablePath { get; private set; } = string.Empty;
 
@@ -215,6 +279,7 @@ namespace Lis.Tests.Lis
                 int timeoutMilliseconds,
                 IDictionary<string, string> environmentVariables)
             {
+                WasCalled = true;
                 LastExecutablePath = executablePath;
                 LastArguments = arguments;
                 LastWorkingDirectory = workingDirectory;
@@ -237,6 +302,106 @@ namespace Lis.Tests.Lis
             }
         }
 
+        private static byte[] BuildSimpleLisFile()
+        {
+            byte[] header = BuildLogicalRecord(LisRecordType.FileHeader, BuildFileRecordData("FILE000900", "PREV000900"));
+            byte[] dfsr = BuildLogicalRecord(LisRecordType.DataFormatSpecification, BuildSimpleDfsrForByteChannel("C1"));
+            byte[] data = BuildLogicalRecord(LisRecordType.NormalData, new byte[] { 0x2A });
+            byte[] trailer = BuildLogicalRecord(LisRecordType.FileTrailer, BuildFileRecordData("FILE000900", "NEXT000900"));
+            byte[] full = Concat(Concat(header, dfsr), Concat(data, trailer));
+            return full;
+        }
+
+        private static byte[] BuildLogicalRecord(LisRecordType type, byte[] data)
+        {
+            byte[] payload = new byte[2 + data.Length];
+            payload[0] = (byte)type;
+            payload[1] = 0x00;
+            if (data.Length > 0)
+            {
+                Buffer.BlockCopy(data, 0, payload, 2, data.Length);
+            }
+
+            return BuildPhysicalRecord(0x0000, payload, Array.Empty<byte>());
+        }
+
+        private static byte[] BuildPhysicalRecord(ushort attributes, byte[] payload, byte[] trailer)
+        {
+            ushort length = (ushort)(4 + payload.Length + trailer.Length);
+            byte[] header = new byte[]
+            {
+                (byte)(length >> 8), (byte)(length & 0xFF),
+                (byte)(attributes >> 8), (byte)(attributes & 0xFF)
+            };
+
+            return Concat(header, payload, trailer);
+        }
+
+        private static byte[] BuildSimpleDfsrForByteChannel(string mnemonic)
+        {
+            byte[] entries = Concat(
+                BuildEntry((byte)LisDfsrEntryType.SpecBlockSubtype, 1, (byte)LisRepresentationCode.Byte, new byte[] { 0x00 }),
+                BuildEntry((byte)LisDfsrEntryType.Terminator, 0, (byte)LisRepresentationCode.Byte, Array.Empty<byte>()));
+
+            byte[] spec = new byte[40];
+            Put(spec, 0, 4, mnemonic);
+            Put(spec, 4, 6, "SRV001");
+            Put(spec, 10, 8, "00000001");
+            Put(spec, 18, 4, "UN");
+            spec[33] = 1;
+            spec[34] = (byte)LisRepresentationCode.Byte;
+
+            return Concat(entries, spec);
+        }
+
+        private static byte[] BuildEntry(byte type, byte size, byte reprc, byte[] value)
+        {
+            var entry = new byte[3 + value.Length];
+            entry[0] = type;
+            entry[1] = size;
+            entry[2] = reprc;
+            if (value.Length > 0)
+            {
+                Buffer.BlockCopy(value, 0, entry, 3, value.Length);
+            }
+
+            return entry;
+        }
+
+        private static byte[] BuildFileRecordData(string fileName, string nextOrPrevName)
+        {
+            var data = new byte[56];
+            for (int i = 0; i < data.Length; i++)
+            {
+                data[i] = 0x20;
+            }
+
+            int offset = 0;
+            Put(data, offset, 10, fileName); offset += 12;
+            Put(data, offset, 6, "SRV001"); offset += 6;
+            Put(data, offset, 8, "VER1.000"); offset += 8;
+            Put(data, offset, 8, "20260324"); offset += 9;
+            Put(data, offset, 5, "16384"); offset += 7;
+            Put(data, offset, 2, "LI"); offset += 4;
+            Put(data, offset, 10, nextOrPrevName);
+            return data;
+        }
+
+        private static void Put(byte[] buffer, int offset, int length, string value)
+        {
+            byte[] bytes = System.Text.Encoding.ASCII.GetBytes(value ?? string.Empty);
+            int copy = Math.Min(length, bytes.Length);
+            Buffer.BlockCopy(bytes, 0, buffer, offset, copy);
+        }
+
+        private static byte[] Concat(byte[] first, byte[] second)
+        {
+            var output = new byte[first.Length + second.Length];
+            Buffer.BlockCopy(first, 0, output, 0, first.Length);
+            Buffer.BlockCopy(second, 0, output, first.Length, second.Length);
+            return output;
+        }
+
         private sealed class TempFile : IDisposable
         {
             private TempFile(string path)
@@ -253,6 +418,26 @@ namespace Lis.Tests.Lis
                 string name = fileName ?? (Guid.NewGuid().ToString("N") + extension);
                 string fullPath = System.IO.Path.Combine(root, name);
                 File.WriteAllText(fullPath, contents);
+                return new TempFile(fullPath);
+            }
+
+            public static TempFile Create(string extension, byte[] contents, string? directory = null, string? fileName = null)
+            {
+                string root = directory ?? System.IO.Path.GetTempPath();
+                Directory.CreateDirectory(root);
+                string name = fileName ?? (Guid.NewGuid().ToString("N") + extension);
+                string fullPath = System.IO.Path.Combine(root, name);
+                File.WriteAllBytes(fullPath, contents);
+                return new TempFile(fullPath);
+            }
+
+            public static TempFile Create(string extension, byte[] contents, string? directory = null, string? fileName = null)
+            {
+                string root = directory ?? System.IO.Path.GetTempPath();
+                Directory.CreateDirectory(root);
+                string name = fileName ?? (Guid.NewGuid().ToString("N") + extension);
+                string fullPath = System.IO.Path.Combine(root, name);
+                File.WriteAllBytes(fullPath, contents);
                 return new TempFile(fullPath);
             }
 

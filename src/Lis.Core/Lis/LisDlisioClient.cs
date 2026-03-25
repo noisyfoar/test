@@ -47,6 +47,11 @@ namespace Lis.Core.Lis
             }
 
             LisDlisioOptions effectiveOptions = options ?? new LisDlisioOptions();
+            if (!effectiveOptions.PreferPythonBridge)
+            {
+                return ReadSummaryWithCore(fullLisPath);
+            }
+
             string workingDirectory = ResolveWorkingDirectory(effectiveOptions, fullLisPath);
             string pythonExecutable = ResolvePythonExecutable(effectiveOptions);
             int timeout = ResolveTimeout(effectiveOptions.TimeoutMilliseconds);
@@ -69,16 +74,28 @@ namespace Lis.Core.Lis
                 }
                 catch (Exception ex) when (!(ex is LisDlisioBridgeException))
                 {
-                    throw new LisDlisioBridgeException(
+                    var bridgeException = new LisDlisioBridgeException(
                         "Python dlisio process could not be started or executed. " +
                         "Check Python installation, dlisio package and process permissions.",
                         ex);
+                    if (effectiveOptions.EnableCoreFallback)
+                    {
+                        return ReadSummaryWithCore(fullLisPath);
+                    }
+
+                    throw bridgeException;
                 }
 
                 if (result.TimedOut)
                 {
-                    throw new LisDlisioBridgeException(
+                    var timeoutException = new LisDlisioBridgeException(
                         "Python dlisio process timed out after " + timeout.ToString(CultureInfo.InvariantCulture) + " ms.");
+                    if (effectiveOptions.EnableCoreFallback)
+                    {
+                        return ReadSummaryWithCore(fullLisPath);
+                    }
+
+                    throw timeoutException;
                 }
 
                 if (result.ExitCode != 0)
@@ -91,20 +108,86 @@ namespace Lis.Core.Lis
                         message += " stdout: " + NormalizeErrorText(result.StdOut);
                     }
 
+                    if (effectiveOptions.EnableCoreFallback)
+                    {
+                        return ReadSummaryWithCore(fullLisPath);
+                    }
+
                     throw new LisDlisioBridgeException(message);
                 }
 
                 if (string.IsNullOrWhiteSpace(result.StdOut))
                 {
+                    if (effectiveOptions.EnableCoreFallback)
+                    {
+                        return ReadSummaryWithCore(fullLisPath);
+                    }
+
                     throw new LisDlisioBridgeException("Python dlisio process returned empty output.");
                 }
 
-                return DeserializeSummary(result.StdOut);
+                try
+                {
+                    return DeserializeSummary(result.StdOut);
+                }
+                catch (LisDlisioBridgeException)
+                {
+                    if (effectiveOptions.EnableCoreFallback)
+                    {
+                        return ReadSummaryWithCore(fullLisPath);
+                    }
+
+                    throw;
+                }
             }
             finally
             {
                 TryDeleteTempScript(tempScriptPath);
             }
+        }
+
+        private static LisDlisioSummary ReadSummaryWithCore(string lisPath)
+        {
+            using var stream = File.OpenRead(lisPath);
+            var parser = new LisFileParser();
+            var options = new LisReadOptions(includeFrames: false, includeCurves: false, allowMalformedData: true);
+            IReadOnlyList<LisLogicalFileData> logicalFiles = parser.Parse(stream, options);
+
+            var mappedFiles = new List<LisDlisioLogicalFileSummary>(logicalFiles.Count);
+            for (int i = 0; i < logicalFiles.Count; i++)
+            {
+                LisLogicalFileData sourceFile = logicalFiles[i];
+                var dfsrs = new List<LisDlisioDfsrSummary>(sourceFile.DataFormatSpecifications.Count);
+                for (int d = 0; d < sourceFile.DataFormatSpecifications.Count; d++)
+                {
+                    LisDataFormatSpecificationRecord sourceDfsr = sourceFile.DataFormatSpecifications[d];
+                    var sampleRatesSet = new HashSet<int>();
+                    var channels = new List<LisDlisioChannelSummary>(sourceDfsr.SpecBlocks.Count);
+                    for (int c = 0; c < sourceDfsr.SpecBlocks.Count; c++)
+                    {
+                        LisDfsrSpecBlock block = sourceDfsr.SpecBlocks[c];
+                        sampleRatesSet.Add(block.Samples);
+                        channels.Add(new LisDlisioChannelSummary(
+                            block.Mnemonic ?? string.Empty,
+                            block.Units ?? string.Empty,
+                            block.Samples,
+                            block.RepresentationCode));
+                    }
+
+                    var sampleRates = new List<int>(sampleRatesSet);
+                    sampleRates.Sort();
+                    dfsrs.Add(new LisDlisioDfsrSummary(d, sourceDfsr.Subtype, sampleRates, channels));
+                }
+
+                mappedFiles.Add(new LisDlisioLogicalFileSummary(
+                    i,
+                    sourceFile.FileHeader?.FileName,
+                    sourceFile.FileTrailer?.FileName,
+                    sourceFile.TextRecords.Count,
+                    dfsrs));
+            }
+
+            return new LisDlisioSummary(mappedFiles, new List<string>());
         }
 
         private static LisDlisioSummary DeserializeSummary(string json)

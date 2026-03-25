@@ -12,6 +12,8 @@ namespace Lis.Core.Lis
             PythonExecutablePath = "python";
             TimeoutMilliseconds = 120000;
             EnvironmentVariables = new Dictionary<string, string>();
+            PreferPythonBridge = false;
+            EnableCoreFallback = true;
         }
 
         /// <summary>
@@ -33,6 +35,17 @@ namespace Lis.Core.Lis
         /// Таймаут ожидания завершения Python-процесса в миллисекундах.
         /// </summary>
         public int TimeoutMilliseconds { get; set; }
+
+        /// <summary>
+        /// Если true, клиент сначала пытается читать через Python `dlisio`.
+        /// Если false, сразу используется встроенный C# парсер Lis.Core (без Python).
+        /// </summary>
+        public bool PreferPythonBridge { get; set; }
+
+        /// <summary>
+        /// Разрешает fallback на встроенный C# парсер Lis.Core, если Python-bridge недоступен или завершился ошибкой.
+        /// </summary>
+        public bool EnableCoreFallback { get; set; }
 
         /// <summary>
         /// Дополнительные переменные окружения для Python-процесса.

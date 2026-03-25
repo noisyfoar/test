@@ -170,9 +170,20 @@ python compare_with_dlisio.py /path/to/file.lis --repo-root /workspace
 using Lis.Core.Lis;
 
 var client = new LisDlisioClient();
+LisDlisioSummary summary = client.ReadSummary(@"C:\data\sample.lis", options);
+```
+
+> По умолчанию `LisDlisioClient` работает в **режиме без Python** (`PreferPythonBridge=false`)
+> и читает LIS встроенным C# парсером `Lis.Core`.  
+> Это позволяет запускать библиотеку на машине, где установлен только `.NET Framework 4.8`.
+
+Если нужно принудительно использовать именно Python `dlisio` (при наличии Python):
+
+```csharp
 var options = new LisDlisioOptions
 {
-    // На Windows можно указать "py" или полный путь к python.exe
+    PreferPythonBridge = true,
+    EnableCoreFallback = true, // если Python недоступен, вернёмся к C# парсеру
     PythonExecutablePath = "python",
     TimeoutMilliseconds = 120000
 };
@@ -180,8 +191,10 @@ var options = new LisDlisioOptions
 LisDlisioSummary summary = client.ReadSummary(@"C:\data\sample.lis", options);
 ```
 
-Что нужно на машине пользователя:
-- установлен `.NET Framework 4.8` (целевая платформа библиотеки),
+Что нужно на машине пользователя для базового сценария:
+- установлен только `.NET Framework 4.8` (достаточно).
+
+Дополнительно (опционально) для Python-режима:
 - установлен `Python`,
 - установлен пакет `dlisio` (`pip install dlisio`).
 
