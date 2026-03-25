@@ -237,7 +237,7 @@ namespace Lis.Tests.Lis
         }
 
         [Fact]
-        public void ReadSummary_PreferPythonBridgeFalse_SkipsRunnerAndUsesCore()
+        public void ReadSummary_DlisioOptionalCoreMode_UsesCore()
         {
             using var lis = TempFile.Create(".lis", BuildSimpleLisFile());
             var runner = new FakeRunner
@@ -251,7 +251,9 @@ namespace Lis.Tests.Lis
             var client = new LisDlisioClient(runner);
             var options = new LisDlisioOptions
             {
-                PreferPythonBridge = false
+                PreferPythonBridge = false,
+                RequireDlisio = false,
+                EnableCoreFallback = true
             };
 
             LisDlisioSummary summary = client.ReadSummary(lis.Path, options);
@@ -317,10 +319,21 @@ namespace Lis.Tests.Lis
                 RequireDlisio = true,
                 PreferBundledBridge = true,
                 PreferPythonBridge = false,
-                EnableCoreFallback = true
+                EnableCoreFallback = false
             };
 
             LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path, options));
+            Assert.Contains("required", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ReadSummary_DefaultOptions_AreStrictDlisioOnly()
+        {
+            using var lis = TempFile.Create(".lis", BuildSimpleLisFile());
+            var runner = new FakeRunner();
+            var client = new LisDlisioClient(runner);
+
+            LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path));
             Assert.Contains("required", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
 

@@ -14,8 +14,8 @@ namespace Lis.Core.Lis
             EnvironmentVariables = new Dictionary<string, string>();
             PreferBundledBridge = true;
             PreferPythonBridge = false;
-            EnableCoreFallback = true;
-            RequireDlisio = false;
+            EnableCoreFallback = false;
+            RequireDlisio = true;
         }
 
         /// <summary>
@@ -51,13 +51,13 @@ namespace Lis.Core.Lis
         public int TimeoutMilliseconds { get; set; }
 
         /// <summary>
-        /// Если true, клиент сначала пытается читать через Python `dlisio`.
-        /// Если false, сразу используется встроенный C# парсер Lis.Core (без Python).
+        /// Если true, после попытки bundled bridge клиент пытается читать через Python `dlisio`.
         /// </summary>
         public bool PreferPythonBridge { get; set; }
 
         /// <summary>
-        /// Разрешает fallback на встроенный C# парсер Lis.Core, если Python-bridge недоступен или завершился ошибкой.
+        /// Разрешает fallback на встроенный C# парсер Lis.Core, если dlisio-bridge недоступен или завершился ошибкой.
+        /// По умолчанию выключен, чтобы не уходить с dlisio в parser из репозитория.
         /// </summary>
         public bool EnableCoreFallback { get; set; }
 
