@@ -199,3 +199,31 @@ LisDlisioSummary summary = client.ReadSummary(@"C:\data\sample.lis", options);
 - установлен пакет `dlisio` (`pip install dlisio`).
 
 `LisDlisioClient` запускает отдельный Python-процесс, читает LIS через `dlisio` и возвращает структурный summary (`LogicalFiles`, `Dfsrs`, `Channels`) в типизированные C# модели.
+
+### Нужен именно `dlisio`, но без установки Python на машину
+
+Если принципиально требуется парсинг именно `dlisio`, но нельзя устанавливать Python в ОС, используйте
+**self-contained bridge executable** (например, собранный заранее `PyInstaller`-ом), который уже содержит Python+`dlisio`.
+
+Пример:
+
+```csharp
+var client = new LisDlisioClient();
+var options = new LisDlisioOptions
+{
+    // Включаем приоритет готового bridge exe
+    PreferBundledBridge = true,
+    DlisioBridgeExecutablePath = @"C:\app\bridges\lis-dlisio-bridge.exe",
+
+    // Требуем именно dlisio-режим (без fallback на Lis.Core)
+    RequireDlisio = true,
+    EnableCoreFallback = false
+};
+
+LisDlisioSummary summary = client.ReadSummary(@"C:\data\sample.lis", options);
+```
+
+Поведение:
+- `RequireDlisio = true` гарантирует, что будет использован только `dlisio`-bridge.
+- Если bridge недоступен/не запускается, вернётся `LisDlisioBridgeException`.
+- Python при этом не требуется устанавливать в системе пользователя.

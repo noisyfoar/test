@@ -52,6 +52,7 @@ namespace Lis.Tests.Lis
             {
                 ScriptPath = script.Path,
                 TimeoutMilliseconds = 1000,
+                PreferBundledBridge = false,
                 PreferPythonBridge = true,
                 EnableCoreFallback = false
             };
@@ -78,6 +79,7 @@ namespace Lis.Tests.Lis
             var options = new LisDlisioOptions
             {
                 ScriptPath = script.Path,
+                PreferBundledBridge = false,
                 PreferPythonBridge = true,
                 EnableCoreFallback = false
             };
@@ -132,6 +134,7 @@ namespace Lis.Tests.Lis
                 ScriptPath = script.Path,
                 WorkingDirectory = tempRoot,
                 TimeoutMilliseconds = 32100,
+                PreferBundledBridge = false,
                 PreferPythonBridge = true
             };
             options.EnvironmentVariables["PYTHONPATH"] = "x";
@@ -171,6 +174,7 @@ namespace Lis.Tests.Lis
             var options = new LisDlisioOptions
             {
                 ScriptPath = script.Path,
+                PreferBundledBridge = false,
                 PreferPythonBridge = true,
                 EnableCoreFallback = false
             };
@@ -193,6 +197,7 @@ namespace Lis.Tests.Lis
             var options = new LisDlisioOptions
             {
                 ScriptPath = script.Path,
+                PreferBundledBridge = false,
                 PreferPythonBridge = true,
                 EnableCoreFallback = false
             };
@@ -216,6 +221,7 @@ namespace Lis.Tests.Lis
             var options = new LisDlisioOptions
             {
                 ScriptPath = script.Path,
+                PreferBundledBridge = false,
                 PreferPythonBridge = true,
                 EnableCoreFallback = true
             };
@@ -254,6 +260,68 @@ namespace Lis.Tests.Lis
             Assert.Single(summary.LogicalFiles);
             Assert.Equal("FILE000900", summary.LogicalFiles[0].FileHeaderName);
             Assert.Single(summary.LogicalFiles[0].Dfsrs);
+        }
+
+        [Fact]
+        public void ReadSummary_BundledBridgePath_UsesBundledExecutableAndNoPythonArguments()
+        {
+            using var lis = TempFile.Create(".lis", "stub");
+            using var bundled = TempFile.Create(".exe", "stub-exe");
+            const string json = "{"
+                + "\"LogicalFiles\":[{"
+                + "\"Index\":0,"
+                + "\"FileHeaderName\":\"FILEBND001\","
+                + "\"FileTrailerName\":\"FILEBND001\","
+                + "\"TextRecordCount\":0,"
+                + "\"Dfsrs\":[]"
+                + "}],"
+                + "\"DlisioErrors\":[]"
+                + "}";
+
+            var runner = new FakeRunner
+            {
+                Handler = (_, _, _, _, _) => new LisDlisioProcessResult(
+                    exitCode: 0,
+                    stdout: json,
+                    stderr: string.Empty,
+                    timedOut: false)
+            };
+
+            var client = new LisDlisioClient(runner);
+            var options = new LisDlisioOptions
+            {
+                DlisioBridgeExecutablePath = bundled.Path,
+                PreferBundledBridge = true,
+                PreferPythonBridge = false,
+                EnableCoreFallback = false,
+                RequireDlisio = true
+            };
+
+            LisDlisioSummary summary = client.ReadSummary(lis.Path, options);
+
+            Assert.Equal(Path.GetFullPath(bundled.Path), runner.LastExecutablePath);
+            Assert.Contains("\"" + lis.Path + "\"", runner.LastArguments, StringComparison.Ordinal);
+            Assert.DoesNotContain(".py", runner.LastArguments, StringComparison.OrdinalIgnoreCase);
+            Assert.Single(summary.LogicalFiles);
+            Assert.Equal("FILEBND001", summary.LogicalFiles[0].FileHeaderName);
+        }
+
+        [Fact]
+        public void ReadSummary_RequireDlisioWithoutBridge_ThrowsLisDlisioBridgeException()
+        {
+            using var lis = TempFile.Create(".lis", BuildSimpleLisFile());
+            var runner = new FakeRunner();
+            var client = new LisDlisioClient(runner);
+            var options = new LisDlisioOptions
+            {
+                RequireDlisio = true,
+                PreferBundledBridge = true,
+                PreferPythonBridge = false,
+                EnableCoreFallback = true
+            };
+
+            LisDlisioBridgeException ex = Assert.Throws<LisDlisioBridgeException>(() => client.ReadSummary(lis.Path, options));
+            Assert.Contains("required", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
 
         private sealed class FakeRunner : ILisDlisioProcessRunner
@@ -418,16 +486,6 @@ namespace Lis.Tests.Lis
                 string name = fileName ?? (Guid.NewGuid().ToString("N") + extension);
                 string fullPath = System.IO.Path.Combine(root, name);
                 File.WriteAllText(fullPath, contents);
-                return new TempFile(fullPath);
-            }
-
-            public static TempFile Create(string extension, byte[] contents, string? directory = null, string? fileName = null)
-            {
-                string root = directory ?? System.IO.Path.GetTempPath();
-                Directory.CreateDirectory(root);
-                string name = fileName ?? (Guid.NewGuid().ToString("N") + extension);
-                string fullPath = System.IO.Path.Combine(root, name);
-                File.WriteAllBytes(fullPath, contents);
                 return new TempFile(fullPath);
             }
 

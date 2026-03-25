@@ -47,103 +47,151 @@ namespace Lis.Core.Lis
             }
 
             LisDlisioOptions effectiveOptions = options ?? new LisDlisioOptions();
-            if (!effectiveOptions.PreferPythonBridge)
+            bool allowCoreFallback = effectiveOptions.EnableCoreFallback && !effectiveOptions.RequireDlisio;
+
+            if (effectiveOptions.PreferBundledBridge)
             {
-                return ReadSummaryWithCore(fullLisPath);
+                string? bridgeExecutable = ResolveBundledBridgeExecutable(effectiveOptions);
+                if (!string.IsNullOrWhiteSpace(bridgeExecutable))
+                {
+                    try
+                    {
+                        return RunBundledBridge(bridgeExecutable, fullLisPath, effectiveOptions);
+                    }
+                    catch (LisDlisioBridgeException)
+                    {
+                        if (!allowCoreFallback && !effectiveOptions.PreferPythonBridge)
+                        {
+                            throw;
+                        }
+                    }
+                }
             }
 
-            string workingDirectory = ResolveWorkingDirectory(effectiveOptions, fullLisPath);
-            string pythonExecutable = ResolvePythonExecutable(effectiveOptions);
-            int timeout = ResolveTimeout(effectiveOptions.TimeoutMilliseconds);
-
-            string? tempScriptPath = null;
-            string scriptPath = ResolveScriptPath(effectiveOptions, out tempScriptPath);
-
-            try
+            if (effectiveOptions.PreferPythonBridge)
             {
-                string arguments = BuildArguments(scriptPath, fullLisPath);
-                LisDlisioProcessResult result;
                 try
                 {
-                    result = _processRunner.Run(
-                        pythonExecutable,
-                        arguments,
-                        workingDirectory,
-                        timeout,
-                        effectiveOptions.EnvironmentVariables);
-                }
-                catch (Exception ex) when (!(ex is LisDlisioBridgeException))
-                {
-                    var bridgeException = new LisDlisioBridgeException(
-                        "Python dlisio process could not be started or executed. " +
-                        "Check Python installation, dlisio package and process permissions.",
-                        ex);
-                    if (effectiveOptions.EnableCoreFallback)
-                    {
-                        return ReadSummaryWithCore(fullLisPath);
-                    }
-
-                    throw bridgeException;
-                }
-
-                if (result.TimedOut)
-                {
-                    var timeoutException = new LisDlisioBridgeException(
-                        "Python dlisio process timed out after " + timeout.ToString(CultureInfo.InvariantCulture) + " ms.");
-                    if (effectiveOptions.EnableCoreFallback)
-                    {
-                        return ReadSummaryWithCore(fullLisPath);
-                    }
-
-                    throw timeoutException;
-                }
-
-                if (result.ExitCode != 0)
-                {
-                    string message = "Python dlisio process failed with exit code " +
-                        result.ExitCode.ToString(CultureInfo.InvariantCulture) +
-                        ". stderr: " + NormalizeErrorText(result.StdErr);
-                    if (!string.IsNullOrWhiteSpace(result.StdOut))
-                    {
-                        message += " stdout: " + NormalizeErrorText(result.StdOut);
-                    }
-
-                    if (effectiveOptions.EnableCoreFallback)
-                    {
-                        return ReadSummaryWithCore(fullLisPath);
-                    }
-
-                    throw new LisDlisioBridgeException(message);
-                }
-
-                if (string.IsNullOrWhiteSpace(result.StdOut))
-                {
-                    if (effectiveOptions.EnableCoreFallback)
-                    {
-                        return ReadSummaryWithCore(fullLisPath);
-                    }
-
-                    throw new LisDlisioBridgeException("Python dlisio process returned empty output.");
-                }
-
-                try
-                {
-                    return DeserializeSummary(result.StdOut);
+                    return RunPythonBridge(fullLisPath, effectiveOptions);
                 }
                 catch (LisDlisioBridgeException)
                 {
-                    if (effectiveOptions.EnableCoreFallback)
+                    if (!allowCoreFallback)
                     {
-                        return ReadSummaryWithCore(fullLisPath);
+                        throw;
                     }
-
-                    throw;
                 }
+            }
+
+            if (effectiveOptions.RequireDlisio)
+            {
+                throw new LisDlisioBridgeException(
+                    "dlisio bridge is required but was not available. " +
+                    "Provide DlisioBridgeExecutablePath or enable a working Python dlisio environment.");
+            }
+
+            return ReadSummaryWithCore(fullLisPath);
+        }
+
+        private LisDlisioSummary RunBundledBridge(string bridgeExecutablePath, string lisPath, LisDlisioOptions options)
+        {
+            string workingDirectory = ResolveWorkingDirectory(options, lisPath);
+            int timeout = ResolveTimeout(options.TimeoutMilliseconds);
+            string arguments = BuildArguments(lisPath);
+
+            LisDlisioProcessResult result = RunBridgeProcess(
+                bridgeExecutablePath,
+                arguments,
+                workingDirectory,
+                timeout,
+                options.EnvironmentVariables,
+                "Bundled dlisio bridge");
+
+            return ParseBridgeResult(result, timeout, "Bundled dlisio bridge");
+        }
+
+        private LisDlisioSummary RunPythonBridge(string lisPath, LisDlisioOptions options)
+        {
+            string workingDirectory = ResolveWorkingDirectory(options, lisPath);
+            string pythonExecutable = ResolvePythonExecutable(options);
+            int timeout = ResolveTimeout(options.TimeoutMilliseconds);
+
+            string? tempScriptPath = null;
+            string scriptPath = ResolveScriptPath(options, out tempScriptPath);
+            try
+            {
+                string arguments = BuildArguments(scriptPath, lisPath);
+                LisDlisioProcessResult result = RunBridgeProcess(
+                    pythonExecutable,
+                    arguments,
+                    workingDirectory,
+                    timeout,
+                    options.EnvironmentVariables,
+                    "Python dlisio process");
+
+                return ParseBridgeResult(result, timeout, "Python dlisio process");
             }
             finally
             {
                 TryDeleteTempScript(tempScriptPath);
             }
+        }
+
+        private LisDlisioProcessResult RunBridgeProcess(
+            string executablePath,
+            string arguments,
+            string workingDirectory,
+            int timeout,
+            IDictionary<string, string> environmentVariables,
+            string processName)
+        {
+            try
+            {
+                return _processRunner.Run(
+                    executablePath,
+                    arguments,
+                    workingDirectory,
+                    timeout,
+                    environmentVariables);
+            }
+            catch (Exception ex) when (!(ex is LisDlisioBridgeException))
+            {
+                throw new LisDlisioBridgeException(
+                    processName + " could not be started or executed.",
+                    ex);
+            }
+        }
+
+        private static LisDlisioSummary ParseBridgeResult(
+            LisDlisioProcessResult result,
+            int timeout,
+            string processName)
+        {
+            if (result.TimedOut)
+            {
+                throw new LisDlisioBridgeException(
+                    processName + " timed out after " + timeout.ToString(CultureInfo.InvariantCulture) + " ms.");
+            }
+
+            if (result.ExitCode != 0)
+            {
+                string message = processName + " failed with exit code " +
+                    result.ExitCode.ToString(CultureInfo.InvariantCulture) +
+                    ". stderr: " + NormalizeErrorText(result.StdErr);
+                if (!string.IsNullOrWhiteSpace(result.StdOut))
+                {
+                    message += " stdout: " + NormalizeErrorText(result.StdOut);
+                }
+
+                throw new LisDlisioBridgeException(message);
+            }
+
+            if (string.IsNullOrWhiteSpace(result.StdOut))
+            {
+                throw new LisDlisioBridgeException(processName + " returned empty output.");
+            }
+
+            return DeserializeSummary(result.StdOut);
         }
 
         private static LisDlisioSummary ReadSummaryWithCore(string lisPath)
@@ -283,6 +331,34 @@ namespace Lis.Core.Lis
             return executable;
         }
 
+        private static string? ResolveBundledBridgeExecutable(LisDlisioOptions options)
+        {
+            if (!string.IsNullOrWhiteSpace(options.DlisioBridgeExecutablePath))
+            {
+                string explicitPath = Path.GetFullPath(options.DlisioBridgeExecutablePath!);
+                if (!File.Exists(explicitPath))
+                {
+                    throw new FileNotFoundException("Bundled dlisio bridge executable was not found.", explicitPath);
+                }
+
+                return explicitPath;
+            }
+
+            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            if (string.IsNullOrWhiteSpace(baseDirectory))
+            {
+                return null;
+            }
+
+            string candidate = Path.Combine(baseDirectory, "lis-dlisio-bridge.exe");
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            return null;
+        }
+
         private static int ResolveTimeout(int timeoutMilliseconds)
         {
             if (timeoutMilliseconds <= 0)
@@ -338,6 +414,11 @@ namespace Lis.Core.Lis
         private static string BuildArguments(string scriptPath, string lisPath)
         {
             return QuoteArgument(scriptPath) + " " + QuoteArgument(lisPath);
+        }
+
+        private static string BuildArguments(string lisPath)
+        {
+            return QuoteArgument(lisPath);
         }
 
         private static string NormalizeErrorText(string text)
